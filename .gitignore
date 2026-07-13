@@ -1,0 +1,52 @@
+# ==========================
+# Unity AI Engineer
+# .gitignore
+# ==========================
+
+# Unity Documentation
+Documents/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# Logs
+Logs/
+*.log
+
+# Databases
+Database/
+
+# Embeddings
+Embeddings/
+
+# AI Models
+Models/
+
+# Cache
+Cache/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+
+# macOS
+.DS_Store
