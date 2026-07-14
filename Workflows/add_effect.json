@@ -1,0 +1,28 @@
+﻿{
+    "intent": "add_effect",
+    "description": "Instantiate an effect under an object.",
+
+    "tasks": [
+
+        {
+            "action":"FindObject"
+        },
+
+        {
+            "action":"FindPrefab"
+        },
+
+        {
+            "action":"Instantiate"
+        },
+
+        {
+            "action":"SetParent"
+        },
+
+        {
+            "action":"ResetTransform"
+        }
+
+    ]
+}
