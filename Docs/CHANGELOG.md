@@ -1,39 +1,28 @@
-﻿
-# CHANGELOG
+﻿# CHANGELOG
 
-## 2026-07-14
+## v0.2.0 - 2026-07-14
 
-### Sprint 2.1
+### Added
 
-- Unity AI mimarisi tek kök klasör altında toplandı.
-- Runtime modülü oluşturuldu.
-- Registry sistemi oluşturuldu.
-- WorkflowRunner oluşturuldu.
-- RuntimeContext oluşturuldu.
-- IAIAction arayüzü oluşturuldu.
-- İlk Action sistemi hazırlandı.
-- Unity Runtime v1 temeli atıldı.
+- Local Qwen3:8B integration
+- LLM Client
+- Workflow JSON parser
+- Workflow execution pipeline
+- Prompt Builder
+- Scene Export system
+- RequestModel
+- Unity Scene Database
+- Knowledge Engine
+- Brain architecture
+- Automatic Unity workflow execution
 
+### Improved
 
-## 2026-07-14
+- Unity ↔ Python communication
+- Workflow reliability
+- Scene understanding foundation
+- Prompt generation
 
-### Sprint 2.2
+### Result
 
-- Namespace standardı AIEngineer.* olarak güncellendi.
-- using bildirimleri standardize edildi.
-- Unity Runtime mimarisi tek namespace altında toplandı.
-- WorkflowRunner entegrasyonuna hazır hale gelindi.
-
-
-## 2026-07-14
-
-### Sprint 2.3
-
-Status : VERIFIED ✅
-
-- WorkflowRunner çalıştı.
-- ActionRegistry doğrulandı.
-- FindObjectAction doğrulandı.
-- RuntimeContext ilk kez kullanıldı.
-- WolfMouth başarıyla bulundu.
-
+AI Engineer can now understand natural language commands and execute them inside Unity automatically.

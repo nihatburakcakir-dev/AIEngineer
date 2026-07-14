@@ -1,31 +1,44 @@
-﻿
-# AIEngineer
+﻿# AI ENGINEER
 
 ## Vision
 
-Unity Editor üzerinde doğal dille çalışan yerel AI Software Engineer.
+A modular AI platform capable of understanding and operating professional engineering software.
+
+## Current Modules
+
+- Unity
+
+## Future Modules
+
+- Blender
+- SolidWorks
+- ANSYS
+- Unreal Engine
 
 ## Current Milestone
 
-Milestone 2
+Natural Language
 
-Unity Runtime
+↓
 
-## Current Sprint
+Local LLM
 
-Sprint 2.2
+↓
 
-## Current Status
+Workflow Generation
 
-Knowledge Engine : Completed
+↓
 
-Workflow Engine : In Progress
+Unity Execution
 
-Unity Runtime : In Progress
+↓
 
-## Next Goal
+Scene Modification
 
-İlk gerçek Unity Action'ını çalıştırmak.
+## Status
 
-FindObjectAction
+Foundation Completed
 
+Current Version
+
+v0.2.0

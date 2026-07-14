@@ -1,32 +1,21 @@
-﻿
-# SPRINTS
+﻿# SPRINTS
 
-## Sprint 2.1
-
-Status : Completed
+## Sprint 1
 
 Completed
 
-- Runtime Foundation
-- Action Registry
-- Runtime Context
-- Workflow Runner
-- AI klasör yapısı yeniden düzenlendi.
-- Tek kök klasör standardı kabul edildi.
+- Python Server
+- Unity Communication
+- Workflow Engine
+- LLM Integration
+- Scene Export
+- Workflow Execution
 
-Next Sprint
+## Sprint 2
 
-- WorkflowRunner entegrasyonu
-- FindObjectAction doğrulaması
-- FindPrefabAction
-- InstantiateAction
+Current
 
-
-### Sprint 2.4
-
-Goal
-
-- Prefab Registry
-- FindPrefabAction
-- Runtime Asset Lookup
-
+- Scene Intelligence
+- Knowledge Engine
+- Prompt Improvement
+- AI Memory
