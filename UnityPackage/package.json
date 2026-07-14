@@ -1,0 +1,10 @@
+﻿{
+  "name": "com.aiengineer.core",
+  "displayName": "AIEngineer",
+  "version": "0.1.0",
+  "unity": "6000.0",
+  "description": "Local AI Software Engineer for Unity.",
+  "author": {
+    "name": "Nihat Burak Çakır"
+  }
+}

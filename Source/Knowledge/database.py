@@ -138,6 +138,28 @@ class Database:
 
     def insert_scene_object(self, obj):
 
+        if isinstance(obj, str):
+
+            obj = {
+
+                "name": obj,
+
+                "path": "",
+
+                "tag": "",
+
+                "layer": "",
+
+                "position": {},
+
+                "rotation": {},
+
+                "scale": {},
+
+                "components": []
+
+            }
+
         self.conn.execute(
 
             """

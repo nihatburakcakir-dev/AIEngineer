@@ -8,10 +8,10 @@ namespace AIEngineer.Runtime
 
         public GameObject LastCreatedObject;
 
-        public Object SelectedPrefab;
-
-        public string CurrentScene;
+        public GameObject SelectedPrefab;
 
         public Transform SelectedTransform;
+
+        public string LastError;
     }
 }

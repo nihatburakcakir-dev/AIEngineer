@@ -5,74 +5,60 @@
         lines = []
 
         lines.append(
-            "You are an expert Unity and C# engineer."
+            "You are an expert Unity Engineer."
         )
 
         lines.append("")
 
-        lines.append("PROJECT CONTEXT")
+        lines.append(
+            "UNITY SCENE OBJECTS"
+        )
 
-        lines.append("----------------")
+        lines.append(
+            "------------------------"
+        )
 
-        for item in context:
+        for obj in context.get("scene", []):
 
             lines.append(
-                f"FILE : {item.get('path','')}"
-            )
 
-            analysis = item.get(
-                "analysis",
-                {}
-            )
-
-            cls = analysis.get("class")
-
-            if cls:
-
-                lines.append(
-                    f"CLASS : {cls}"
+                obj.get(
+                    "name",
+                    ""
                 )
 
-            methods = analysis.get(
-                "methods",
-                []
             )
 
-            if methods:
+        lines.append("")
 
-                lines.append(
-                    "METHODS :"
-                )
+        lines.append(
+            "USER REQUEST"
+        )
 
-                for m in methods:
+        lines.append(
+            "------------------------"
+        )
 
-                    lines.append(
-                        f" - {m}"
-                    )
+        lines.append(
+            question
+        )
 
-            fields = analysis.get(
-                "fields",
-                []
-            )
+        lines.append("")
 
-            if fields:
+        lines.append(
+            "Rules"
+        )
 
-                lines.append(
-                    "FIELDS :"
-                )
+        lines.append(
+            "- Use ONLY Unity object names above."
+        )
 
-                for f in fields:
+        lines.append(
+            "- Never invent object names."
+        )
 
-                    lines.append(
-                        f" - {f}"
-                    )
-
-            lines.append("")
-
-        lines.append("----------------")
-
-        lines.append("QUESTION")
-
-        lines.append(question)
+        lines.append(
+            "- Return JSON only."
+        )
 
         return "\n".join(lines)

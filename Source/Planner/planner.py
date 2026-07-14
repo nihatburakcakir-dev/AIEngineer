@@ -1,76 +1,29 @@
-﻿import unicodedata
-
-from Source.Planner.models import Task
+﻿from Source.Planner.models import Task
 
 
 class Planner:
 
-    def normalize(self, text: str):
+    def plan(self, tasks):
 
-        text = text.lower()
+        print("=" * 60)
+        print("PLANNER")
+        print("=" * 60)
 
-        return (
-            unicodedata.normalize(
-                "NFKD",
-                text
+        if tasks is None:
+
+            raise Exception(
+                "Workflow is null."
             )
-            .encode(
-                "ascii",
-                "ignore"
+
+        if len(tasks) == 0:
+
+            raise Exception(
+                "Workflow contains no task."
             )
-            .decode("ascii")
+
+        print(
+            "Task Count :",
+            len(tasks)
         )
-
-
-    def plan(self, request: str):
-
-        text = self.normalize(request)
-
-        print("=" * 60)
-        print("PLANNER INPUT")
-        print(text)
-        print("=" * 60)
-
-        tasks = []
-
-        if (
-            "ates" in text
-            or "fire" in text
-        ):
-
-            tasks.append(
-                Task(
-                    "FindObject",
-                    "WolfMouth"
-                )
-            )
-
-            tasks.append(
-                Task(
-                    "FindPrefab",
-                    "Magic fire pro blue"
-                )
-            )
-
-            tasks.append(
-                Task(
-                    "Instantiate"
-                )
-            )
-
-            tasks.append(
-                Task(
-                    "SetParent",
-                    "WolfMouth"
-                )
-            )
-
-            tasks.append(
-                Task(
-                    "ResetTransform"
-                )
-            )
-
-        print("TASKS :", len(tasks))
 
         return tasks

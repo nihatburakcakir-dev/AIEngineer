@@ -1,89 +1,76 @@
-﻿from dataclasses import dataclass
-
-from Source.Planner.planner import Planner
-from Source.Knowledge.retriever import Retriever
+﻿from Source.Knowledge.retriever import Retriever
 from Source.Brain.prompt_builder import PromptBuilder
 
+from Source.LLM.client import LLMClient
+from Source.LLM.prompt import SYSTEM_PROMPT
+from Source.LLM.workflow_parser import WorkflowParser
 
-@dataclass
-class Action:
-
-    action: str
-    target: str
-    effect: str = ""
+from Source.Planner.planner import Planner
 
 
 class Brain:
 
     def __init__(self):
 
-        self.planner = Planner()
-
         self.retriever = Retriever()
 
         self.builder = PromptBuilder()
+
+        self.client = LLMClient()
+
+        self.parser = WorkflowParser()
+
+        self.planner = Planner()
 
 
     def think(self, request):
 
         print("=" * 60)
-        print("BRAIN REQUEST")
-        print(request)
+        print("BRAIN")
         print("=" * 60)
 
-        tasks = self.planner.plan(request)
+        context = {
 
-        print("TASK COUNT :", len(tasks))
+            "scene":
+                self.retriever.scene_objects(),
 
-        for t in tasks:
-            print(t)
-
-        context = []
-
-        for task in tasks:
-
-            if task.target:
-
-                context.extend(
-                    self.retriever.search_name(
-                        task.target
-                    )
-                )
-
-        prompt = self.builder.build(
-            request,
-            context
-        )
-
-        return {
-
-            "tasks": tasks,
-
-            "context": context,
-
-            "prompt": prompt
-
+            "files":[]
         }
 
+        prompt = (
 
-    def understand(self, text, context):
+            SYSTEM_PROMPT
 
-        result = self.think(text)
+            + "\n\n"
 
-        if len(result["tasks"]) == 0:
+            + self.builder.build(
 
-            raise Exception(
-                "Planner produced no task."
+                request,
+
+                context
+
             )
 
-        first = result["tasks"][0]
-
-        return Action(
-
-            action=first.action,
-
-            target=first.target,
-
-            effect="Magic fire pro blue"
-
         )
+
+        print()
+        print(prompt)
+
+        response = self.client.generate(
+            prompt
+        )
+
+        print()
+        print("LLM RESPONSE")
+        print("=" * 60)
+        print(response)
+
+        tasks = self.parser.parse(
+            response
+        )
+
+        tasks = self.planner.plan(
+            tasks
+        )
+
+        return tasks

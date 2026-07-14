@@ -14,6 +14,28 @@ class Importer:
 
         for obj in objects:
 
+            if isinstance(obj, str):
+
+                obj = {
+
+                    "name": obj,
+
+                    "path": "",
+
+                    "tag": "",
+
+                    "layer": "",
+
+                    "position": {},
+
+                    "rotation": {},
+
+                    "scale": {},
+
+                    "components": []
+
+                }
+
             self.db.insert_scene_object(obj)
 
         self.db.commit()

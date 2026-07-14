@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using System.Collections.Generic;
 using AIEngineer.Runtime;
 using AIEngineer.Models;
@@ -12,7 +12,7 @@ public static class TestWorkflow
 
         WorkflowModel workflow = new WorkflowModel();
 
-        workflow.workflow = "test";
+        workflow.workflow = "Full Test";
 
         workflow.tasks = new List<TaskModel>()
         {
@@ -20,6 +20,27 @@ public static class TestWorkflow
             {
                 action = "FindObject",
                 target = "WolfMouth"
+            },
+
+            new TaskModel()
+            {
+                action = "FindPrefab",
+                target = "Magic fire pro blue"
+            },
+
+            new TaskModel()
+            {
+                action = "Instantiate"
+            },
+
+            new TaskModel()
+            {
+                action = "SetParent"
+            },
+
+            new TaskModel()
+            {
+                action = "ResetTransform"
             }
         };
 

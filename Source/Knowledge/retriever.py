@@ -10,6 +10,7 @@ class Retriever:
 
         self.conn.row_factory = sqlite3.Row
 
+
     def _rows(self, sql, params=()):
 
         cur = self.conn.execute(sql, params)
@@ -20,59 +21,67 @@ class Retriever:
 
             item = dict(row)
 
-            if item["analysis"]:
-                item["analysis"] = json.loads(item["analysis"])
+            if "analysis" in item and item["analysis"]:
+
+                item["analysis"] = json.loads(
+                    item["analysis"]
+                )
 
             rows.append(item)
 
         return rows
 
-    def search_name(self, name):
+
+    def scene_objects(self):
 
         return self._rows(
 
-            "SELECT * FROM files WHERE name LIKE ?",
+            """
+
+            SELECT *
+
+            FROM scene_objects
+
+            ORDER BY name
+
+            """
+
+        )
+
+
+    def scene_object_names(self):
+
+        rows = self.scene_objects()
+
+        return [
+
+            row["name"]
+
+            for row in rows
+
+        ]
+
+
+    def search_scene_object(
+
+        self,
+
+        name
+
+    ):
+
+        return self._rows(
+
+            """
+
+            SELECT *
+
+            FROM scene_objects
+
+            WHERE name LIKE ?
+
+            """,
 
             (f"%{name}%",)
 
         )
-
-    def search_type(self, asset_type):
-
-        return self._rows(
-
-            "SELECT * FROM files WHERE type=?",
-
-            (asset_type,)
-
-        )
-
-    def search_folder(self, folder):
-
-        return self._rows(
-
-            "SELECT * FROM files WHERE folder LIKE ?",
-
-            (f"%{folder}%",)
-
-        )
-
-    def search_class(self, class_name):
-
-        rows = self._rows(
-
-            "SELECT * FROM files WHERE type='script'"
-
-        )
-
-        result = []
-
-        for row in rows:
-
-            analysis = row.get("analysis", {})
-
-            if analysis.get("class") == class_name:
-
-                result.append(row)
-
-        return result
