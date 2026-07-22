@@ -1,9 +1,9 @@
 ﻿{
   "name": "com.aiengineer.core",
-  "displayName": "AIEngineer",
-  "version": "0.1.0",
+  "displayName": "AI Engineer Complete",
+  "version": "0.3.0",
   "unity": "6000.0",
-  "description": "Local AI Software Engineer for Unity.",
+  "description": "Transactional Unity AI engineering with Ollama, Qwen/Codex account fallback, visual/game workflows, and a mobile marble-shooter sample.",
   "author": {
     "name": "Nihat Burak Çakır"
   }

@@ -5,12 +5,31 @@ def main():
 
     brain = Brain()
 
-    action = brain.understand(
-        "Kurdun agzina mavi ates efekti ekle."
+    tasks = brain.think(
+
+        "Kurdun ağzına mavi ateş efekti ekle."
+
     )
 
-    print(action)
+    print()
+
+    print("=" * 60)
+
+    print("TASKS")
+
+    print("=" * 60)
+
+    for t in tasks:
+
+        print(
+
+            t.action,
+
+            t.target
+
+        )
 
 
 if __name__ == "__main__":
+
     main()

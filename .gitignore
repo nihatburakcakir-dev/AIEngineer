@@ -1,52 +1,96 @@
-# ==========================
-# Unity AI Engineer
-# .gitignore
-# ==========================
-
-# Unity Documentation
-Documents/
-
+﻿# -----------------------------
 # Python
+# -----------------------------
+
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+*.pyd
+*.so
 
+# -----------------------------
 # Virtual Environment
+# -----------------------------
+
 .venv/
 venv/
+env/
 
-# VS Code
+# -----------------------------
+# IDE
+# -----------------------------
+
 .vscode/
+.idea/
 
+# -----------------------------
+# Database
+# -----------------------------
+
+*.db
+*.sqlite
+*.sqlite3
+
+# -----------------------------
 # Logs
-Logs/
+# -----------------------------
+
 *.log
 
-# Databases
-Database/
-
-# Embeddings
-Embeddings/
-
-# AI Models
-Models/
-
+# -----------------------------
 # Cache
-Cache/
+# -----------------------------
 
-# Windows
-Thumbs.db
-Desktop.ini
-
-# Python cache
+.cache/
 .pytest_cache/
-.mypy_cache/
 
-# Jupyter
-.ipynb_checkpoints/
+# -----------------------------
+# Build
+# -----------------------------
 
-# Environment
-.env
+build/
+dist/
 
-# macOS
+# -----------------------------
+# Unity
+# -----------------------------
+
+Library/
+Temp/
+Obj/
+Logs/
+Build/
+Builds/
+MemoryCaptures/
+UserSettings/
+
+# -----------------------------
+# AI Engineer
+# -----------------------------
+
+Backups/
+imports.txt
+ai_config.json
+.runtime/
+Tools/QwenCode/
+
+# Local Unity documentation/search corpus (about 1 GB; never publish)
+Documents/Unity/UnityDocumentation/
+
+# Generated inspection/test artifacts
+tmp/
+Data/
+_csctest/
+_tmp*.py
+_all_assets.txt
+ProjectTree.txt
+SourceTree.txt
+Source.zip
+Source/Knowledge.zip
+
+# -----------------------------
+# OS
+# -----------------------------
+
+Thumbs.db
 .DS_Store

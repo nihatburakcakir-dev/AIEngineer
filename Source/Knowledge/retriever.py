@@ -1,4 +1,4 @@
-﻿import sqlite3
+import sqlite3
 import json
 
 
@@ -85,3 +85,46 @@ class Retriever:
             (f"%{name}%",)
 
         )
+
+    def project_assets(self):
+
+        return self._rows(
+
+            """
+
+            SELECT *
+
+            FROM project_assets
+
+            ORDER BY type,name
+
+            """
+
+        )
+
+    def project_assets_by_type(
+
+        self,
+
+        asset_type
+
+    ):
+
+        return self._rows(
+
+            """
+
+            SELECT *
+
+            FROM project_assets
+
+            WHERE type=?
+
+            ORDER BY name
+
+            """,
+
+            (asset_type,)
+
+        )
+

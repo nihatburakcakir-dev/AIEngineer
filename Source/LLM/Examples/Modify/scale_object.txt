@@ -1,0 +1,18 @@
+User:
+
+Scale WolfMouth.
+
+Output:
+
+{
+    "workflow":"Scale Object",
+    "tasks":[
+        {
+            "action":"FindObject",
+            "target":"WolfMouth"
+        },
+        {
+            "action":"Scale"
+        }
+    ]
+}

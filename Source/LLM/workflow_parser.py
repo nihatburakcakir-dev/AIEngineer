@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from Source.Planner.models import Task
 

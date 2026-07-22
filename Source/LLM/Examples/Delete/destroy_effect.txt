@@ -1,0 +1,18 @@
+User:
+
+Delete [Object].
+
+Output:
+
+{
+    "workflow":"Delete Object",
+    "tasks":[
+        {
+            "action":"FindObject",
+            "target":"[Object]"
+        },
+        {
+            "action":"Destroy"
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-﻿from Source.Executor.executor import Command
+from Source.Executor.executor import Command
 
 
 class Validator:

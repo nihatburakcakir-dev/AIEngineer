@@ -1,4 +1,4 @@
-﻿from Source.Knowledge.scanner import Scanner
+from Source.Knowledge.scanner import Scanner
 from Source.Knowledge.indexer import Indexer
 from Source.Knowledge.database import Database
 

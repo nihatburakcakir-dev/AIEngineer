@@ -1,4 +1,4 @@
-﻿# AI Engineer Architecture
+# AI Engineer Architecture
 
 ## Modules
 

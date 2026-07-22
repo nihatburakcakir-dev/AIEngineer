@@ -1,4 +1,4 @@
-﻿class Memory:
+class Memory:
 
     def __init__(self):
 
@@ -50,3 +50,13 @@
         self.history_list.clear()
 
         self.undo_stack.clear()
+
+    def import_learning(self, learning_memory):
+        lessons = learning_memory.import_critique_events()
+        self.set("learned_lessons", [lesson.to_dict() for lesson in lessons])
+        return lessons
+
+    def import_learning(self, learning_memory):
+        lessons = learning_memory.import_critique_events()
+        self.set("learned_lessons", [lesson.to_dict() for lesson in lessons])
+        return lessons

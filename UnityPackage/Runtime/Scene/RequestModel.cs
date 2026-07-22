@@ -8,6 +8,10 @@ namespace AIEngineer.Scene
     {
         public string prompt;
 
+        public string projectPath;
+
         public List<SceneObjectModel> objects;
+
+        public ProjectModel project;
     }
 }

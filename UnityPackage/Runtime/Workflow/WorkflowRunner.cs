@@ -37,6 +37,10 @@ namespace AIEngineer.Runtime
             registry.Register(
                 new ResetTransformAction()
             );
+
+            registry.Register(
+                new DestroyAction()
+            );
         }
 
         public bool Run(
@@ -61,9 +65,12 @@ namespace AIEngineer.Runtime
                     return false;
                 }
 
-                if (!action.Execute(
-                    context,
-                    task))
+                if (
+                    !action.Execute(
+                        context,
+                        task
+                    )
+                )
                 {
                     return false;
                 }

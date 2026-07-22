@@ -1,5 +1,56 @@
 from pathlib import Path
-from bs4 import BeautifulSoup
+from html.parser import HTMLParser
+import re
+
+
+class _UnityHTMLParser(HTMLParser):
+    """Extract the document fields we need without third-party dependencies."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.title = ""
+        self.paragraphs = []
+        self.code_blocks = []
+        self._capture = None
+        self._depth = 0
+        self._buffer = []
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.casefold()
+        if self._capture is not None:
+            self._depth += 1
+            return
+        if tag in {"title", "p", "pre"}:
+            self._capture = tag
+            self._depth = 0
+            self._buffer = []
+
+    def handle_endtag(self, tag):
+        if self._capture is None:
+            return
+        if self._depth > 0:
+            self._depth -= 1
+            return
+        if tag.casefold() != self._capture:
+            return
+        raw = "".join(self._buffer)
+        if self._capture == "pre":
+            text = raw.strip()
+            if text:
+                self.code_blocks.append(text)
+        else:
+            text = re.sub(r"\s+", " ", raw).strip()
+            if self._capture == "title" and not self.title:
+                self.title = text
+            elif self._capture == "p" and len(text) > 20:
+                self.paragraphs.append(text)
+        self._capture = None
+        self._depth = 0
+        self._buffer = []
+
+    def handle_data(self, data):
+        if self._capture is not None:
+            self._buffer.append(data)
 
 
 class UnityDocumentParser:
@@ -7,36 +58,17 @@ class UnityDocumentParser:
     def parse(self, html_file: Path):
 
         with open(html_file, "r", encoding="utf-8", errors="ignore") as f:
-            soup = BeautifulSoup(f, "lxml")
-
-        title = ""
-
-        if soup.title:
-            title = soup.title.get_text(strip=True)
-
-        paragraphs = []
-
-        for p in soup.find_all("p"):
-            text = p.get_text(" ", strip=True)
-
-            if len(text) > 20:
-                paragraphs.append(text)
-
-        code_blocks = []
-
-        for pre in soup.find_all("pre"):
-            code = pre.get_text("\n", strip=True)
-
-            if code:
-                code_blocks.append(code)
+            parser = _UnityHTMLParser()
+            parser.feed(f.read())
+            parser.close()
 
         return {
 
-            "title": title,
+            "title": parser.title,
 
-            "paragraphs": paragraphs,
+            "paragraphs": parser.paragraphs,
 
-            "code_blocks": code_blocks
+            "code_blocks": parser.code_blocks
 
         }
 

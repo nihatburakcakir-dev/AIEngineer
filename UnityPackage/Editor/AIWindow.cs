@@ -10,7 +10,6 @@ namespace AIEngineer.Editor
     {
         string prompt = "";
 
-        [MenuItem("AI Engineer/Open AI")]
         static void Open()
         {
             GetWindow<AIWindow>(

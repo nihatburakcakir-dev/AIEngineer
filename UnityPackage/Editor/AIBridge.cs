@@ -36,7 +36,6 @@ public class AIBridge : EditorWindow
 {
     string prompt = "Kurdun agzina mavi ates efekti ekle";
 
-    [MenuItem("AI Engineer/Open Bridge")]
     public static void ShowWindow()
     {
         GetWindow<AIBridge>("AI Engineer");

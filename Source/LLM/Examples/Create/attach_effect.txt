@@ -1,0 +1,28 @@
+User:
+
+Attach [Prefab] to [Object].
+
+Output:
+
+{
+    "workflow":"Attach Object",
+    "tasks":[
+        {
+            "action":"FindObject",
+            "target":"[Object]"
+        },
+        {
+            "action":"FindPrefab",
+            "target":"[Prefab]"
+        },
+        {
+            "action":"Instantiate"
+        },
+        {
+            "action":"SetParent"
+        },
+        {
+            "action":"ResetTransform"
+        }
+    ]
+}

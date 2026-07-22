@@ -1,4 +1,4 @@
-﻿class PromptBuilder:
+class PromptBuilder:
 
     def build(self, request: str):
 

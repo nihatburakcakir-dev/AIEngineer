@@ -1,6 +1,9 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 
+using UnityEditor;
+
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -20,8 +23,38 @@ namespace AIEngineer.Editor
             requestData.prompt =
                 prompt;
 
+            requestData.projectPath =
+                Directory.GetParent(
+                    Application.dataPath
+                ).FullName;
+
             requestData.objects =
                 SceneExporter.Export();
+
+            requestData.project =
+                new ProjectModel
+                {
+                    prefabs =
+                        ProjectExporter.GetPrefabs(),
+
+                    materials =
+                        ProjectExporter.GetMaterials(),
+
+                    textures =
+                        ProjectExporter.GetTextures(),
+
+                    audio =
+                        ProjectExporter.GetAudio(),
+
+                    scripts =
+                        ProjectExporter.GetScripts(),
+
+                    animations =
+                        ProjectExporter.GetAnimations(),
+
+                    scenes =
+                        ProjectExporter.GetScenes()
+                };
 
             string json =
                 JsonUtility.ToJson(
@@ -29,9 +62,7 @@ namespace AIEngineer.Editor
                     true
                 );
 
-            Debug.Log(
-                json
-            );
+            Debug.Log(json);
 
             using UnityWebRequest request =
                 new UnityWebRequest(
@@ -65,14 +96,41 @@ namespace AIEngineer.Editor
                 await Task.Yield();
             }
 
-            if (
+            if
+            (
                 request.result !=
                 UnityWebRequest.Result.Success
             )
             {
+                Debug.LogError("========== REQUEST FAILED ==========");
+
                 Debug.LogError(
-                    request.error
+                    "Result : " + request.result
                 );
+
+                Debug.LogError(
+                    "Error : " + request.error
+                );
+
+                Debug.LogError(
+                    "HTTP Code : " + request.responseCode
+                );
+
+                if
+                (
+                    request.downloadHandler != null
+                )
+                {
+                    Debug.LogError(
+                        "SERVER RESPONSE:"
+                    );
+
+                    Debug.LogError(
+                        request.downloadHandler.text
+                    );
+                }
+
+                Debug.LogError("====================================");
 
                 return "";
             }
@@ -82,3 +140,4 @@ namespace AIEngineer.Editor
         }
     }
 }
+

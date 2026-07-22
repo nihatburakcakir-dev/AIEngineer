@@ -1,0 +1,40 @@
+{
+  "project_root": "",
+  "editor": "Unity",
+  "unity_version": "6000.0",
+  "backup_folder": "Backups",
+  "auto_backup": true,
+  "compile_after_patch": true,
+  "rollback_on_error": true,
+  "unity_path": "",
+  "vision_model": "llava:7b",
+  "vision_endpoint": "http://127.0.0.1:11434/api/chat",
+  "local_only": true,
+  "text_model": "qwen3:30b",
+  "ollama_endpoint": "http://127.0.0.1:11434/api/chat",
+  "model_routes": {
+    "chat": "qwen3:30b",
+    "planning": "qwen3:30b",
+    "code_generation": "qwen3:30b",
+    "vision": "llava:7b"
+  },
+  "cloud_optional": true,
+  "cloud_provider": "openrouter",
+  "cloud_endpoint": "https://openrouter.ai/api/v1/chat/completions",
+  "cloud_api_key_env": "OPENROUTER_API_KEY",
+  "cloud_model_routes": {
+    "chat": "openrouter/free",
+    "planning": "openrouter/free",
+    "code_generation": "openrouter/free",
+    "vision": "openrouter/free"
+  },
+  "qwen_code_executable": "qwen",
+  "qwen_code_model": "qwen3:30b",
+  "qwen_code_base_url": "http://127.0.0.1:11434/v1",
+  "qwen_code_auth_type": "openai",
+  "qwen_code_api_key_env": "QWEN_CODE_API_KEY",
+  "qwen_code_timeout": 240,
+  "codex_executable": "codex",
+  "codex_model": "",
+  "codex_timeout": 300
+}

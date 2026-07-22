@@ -1,4 +1,4 @@
-﻿from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 
 from Source.Brain.brain import Brain

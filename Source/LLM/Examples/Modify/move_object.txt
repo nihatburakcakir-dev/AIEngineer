@@ -1,0 +1,18 @@
+User:
+
+Move WolfMouth upward.
+
+Output:
+
+{
+    "workflow":"Move Object",
+    "tasks":[
+        {
+            "action":"FindObject",
+            "target":"WolfMouth"
+        },
+        {
+            "action":"Move"
+        }
+    ]
+}

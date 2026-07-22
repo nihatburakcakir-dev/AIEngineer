@@ -1,4 +1,4 @@
-﻿from Source.Knowledge.database import Database
+from Source.Knowledge.database import Database
 
 
 class Importer:

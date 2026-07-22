@@ -1,4 +1,4 @@
-﻿from Source.Planner.models import Task
+from Source.Planner.models import Task
 
 
 class Planner:

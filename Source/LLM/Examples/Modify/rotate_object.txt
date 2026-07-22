@@ -1,0 +1,18 @@
+User:
+
+Rotate WolfMouth.
+
+Output:
+
+{
+    "workflow":"Rotate Object",
+    "tasks":[
+        {
+            "action":"FindObject",
+            "target":"WolfMouth"
+        },
+        {
+            "action":"Rotate"
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 from Source.Planner.planner import Planner
 from Source.Knowledge.retriever import Retriever
