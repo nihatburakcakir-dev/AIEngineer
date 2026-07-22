@@ -1,95 +1,83 @@
-# AI Engineer v0.3.0 — Sürüm Notları
+# AI Engineer v0.3.0
 
-Yayın tarihi: 22 Temmuz 2026  
-Hedef branch: `develop`  
-Unity uyumluluğu: Unity 6 / 6000.x
+> **A local-first AI production workspace for Unity 6.**
+> Plan, review, validate, apply, and undo Unity changes from one Control Center.
 
-## Genel bakış
+| Unity | Primary models | Interface | Release |
+| --- | --- | --- | --- |
+| Unity 6 / 6000.x | `qwen3:30b` + `llava:7b` | Turkish & English | v0.3.0 |
 
-v0.3.0, AI Engineer projesini basit bir komut penceresinden; Unity projesini, aktif sahneyi, mevcut C# API'lerini, varlıkları ve yerel Unity dokümantasyonunu inceleyebilen, değişikliklerini işlem günlüğü içinde uygulayabilen yerel-öncelikli bir Unity üretim aracına dönüştürür.
+```mermaid
+flowchart LR
+    A[Describe a feature] --> B[AI Engineer Control Center]
+    B --> C[Project-aware plan]
+    C --> D[Reviewable change set]
+    D --> E{Validated?}
+    E -- Yes --> F[Apply, compile, verify]
+    E -- No --> G[Repair or rollback]
+```
 
-Bu sürümün ana hedefi, model cevabını doğrudan dosyalara yazmak yerine önce incelenebilir bir değişiklik setine çevirmek ve yalnızca doğrulamadan geçen işlemleri Unity'ye uygulamaktır.
+## Build Unity features with safer AI assistance
 
-## Başlıca yenilikler
+AI Engineer reads the active scene, existing C# APIs, project assets, and local
+Unity documentation before it proposes a change. Instead of allowing raw model
+output to write directly into a project, it uses a reviewable change set and a
+transactional executor.
 
-### Yerel model ve iki aşamalı gameplay planlama
+### What is included in v0.3.0
 
-- Metin ve kod planlama için `qwen3:30b` desteği eklendi.
-- Referans görsel analizi için yerel `llava:7b` desteği eklendi.
-- Bomba, güçlendirme, mermi, düşman veya zincir reaksiyonu gibi gameplay istekleri iki aşamada ele alınır:
-  1. Davranış, üretim/dağıtım, efekt/ses, mevcut sistem entegrasyonu ve kabul testleri çıkarılır.
-  2. Bu mimariye bağlı çalıştırılabilir Unity değişiklik seti üretilir.
-- Kod içeren planlar için yerel model cevap bütçesi artırıldı.
-- Bozuk veya eksik JSON cevabı Unity'ye ulaşmadan yeniden planlanır.
+| Capability | What it does |
+| --- | --- |
+| **Gameplay planning** | Produces two-pass plans for bombs, power-ups, chain reactions, effects, audio, and gameplay code. |
+| **Project grounding** | Validates real scene paths, public script APIs, asset paths, and component targets. |
+| **Safe execution** | Creates a backup, waits for compilation, validates results, and rolls back failed work. |
+| **Mobile UI** | Builds landscape or portrait entry UI with reference images, real CTA buttons, and scene/gameplay transitions. |
+| **Unity generation** | Creates scripts, GameObjects, components, prefabs, materials, ParticleSystem effects, characters, and prototypes. |
+| **Model providers** | Uses local Ollama by default; optional Qwen Code and Codex account workflows are available. |
 
-### Projeye dayalı doğrulama
+## Where generated work goes
 
-- Aktif sahnedeki gerçek GameObject yolları modele aktarılır.
-- Projedeki C# sınıflarının public metot ve alanları küçük bir `script_api` özeti olarak çıkarılır.
-- Modelin var olmayan `RemoveBall` benzeri metotları çağırması uygulamadan önce engellenir.
-- `add_component` ve `set_property` işlemleri yalnızca gerçek Hierarchy nesnelerini hedefleyebilir.
-- Eksik prefab, ses, materyal veya başka bir Unity asset yolu ön doğrulamada reddedilir.
-- Yeni bir gameplay `MonoBehaviour` sahneye veya prefaba bağlanmamışsa değişiklik seti tamamlanmış kabul edilmez.
-- İstenen rastgele davranışın kodu ve efekt bağlantıları bulunmadan gameplay planı uygulanmaz.
+```text
+Assets/
+├── AIEngineer/                  # Protected package tooling
+└── AIEngineerGenerated/          # Editable generated games, UI, prefabs, effects, characters
+```
 
-### Otonom uygulama ve geri alma
+The autonomous workflow protects the package itself. If a package-owned sample
+scene is open, it is copied to `Assets/AIEngineerGenerated` before it is edited.
 
-- Dosya işlemleri, Unity işlemleri ve doğrulamalar ayrı aşamalarda yürütülür.
-- C# dosyaları yazıldıktan sonra Unity derlemesi beklenir.
-- Derleme başarılıysa sahne, prefab, materyal, efekt ve component işlemleri uygulanır.
-- İstenirse Play Mode doğrulaması çalıştırılır.
-- Hata Unity/derleyici tanılarıyla modele geri gönderilir.
-- Düzeltme başarılı olmazsa işlem yedeğinden geri alınır.
-- Son başarılı işlem Control Center üzerinden geri alınabilir.
+## Quick start
 
-### Güvenli Unity çıktı alanı
+1. Import the Unity package.
+2. Open **AI Engineer → Control Center**.
+3. Choose **Create**, **Analyze**, **Repair**, **Games**, or **Memory**.
+4. Describe the feature in Turkish or English; optionally select a reference image.
+5. Review the plan, then choose **Approve and apply autonomously**.
+6. Check compilation and Play Mode results; use **Undo last operation** if needed.
 
-- AI Engineer paketinin kendi `Assets/AIEngineer` klasörü otonom değişikliklere kapalıdır.
-- Oyun, karakter, UI ve diğer üretimler `Assets/AIEngineerGenerated` altında tutulur.
-- Paket içindeki örnek bir sahne açıkken değişiklik istenirse sahne önce düzenlenebilir proje alanına kopyalanır.
-- Eski `Assets/AIEngineer/GeneratedGames` ve `GeneratedCharacters` yolları otomatik olarak yeni güvenli çıktı alanına yönlendirilir.
+## Documentation
 
-### Mobil UI ve referans görsel iş akışı
+| Document | Purpose |
+| --- | --- |
+| [v0.3.0 Release Notes](RELEASE_NOTES_v0.3.0.md) | New visual release overview, workflow diagrams, verification, and limitations. |
+| [Archived v0.3.0 Notes](Docs/RELEASE_NOTES_v0.3.0.md) | English archive of the original detailed release notes. |
+| [Changelog](Docs/CHANGELOG.md) | Release history. |
+| [Installation](UnityPackage/INSTALL.md) | Unity package installation. |
+| [Another PC Setup](UnityPackage/BASKA_PC_KURULUM.md) | Backend and Unity setup on another computer. |
+| [Control Center Guide](UnityPackage/CONTROL_CENTER_KULLANIM_KILAVUZU.md) | Control Center workflow. |
+| [Model & Autonomy Guide](UnityPackage/MODEL_VE_OTONOM_KULLANIM.md) | Models, providers, review, and autonomous execution. |
 
-- Model, referans görsel için `rebuild`, `background` veya `hero` düzenini seçebilir.
-- Görsel yerleşimi `contain` veya `cover` olarak belirlenebilir; görüntüler artık zorla esnetilmez.
-- CTA konumu dokuz normalize anchor seçeneğiyle model tarafından belirlenebilir.
-- Başlat CTA'sı gerçek Unity Button olarak üretilir.
-- Buton mevcut gameplay kökünü görünür yapabilir veya geçerli bir Unity sahnesini açabilir.
-- Mevcut oluşturulmuş menü model kararıyla güvenli şekilde yenisiyle değiştirilebilir.
-- Yatay ve dikey mobil CanvasScaler düzenleri desteklenir.
+## Verification
 
-### Model sağlayıcıları
+```powershell
+python -m unittest test_autonomous_change_protocol.py test_package_delivery.py test_phase8_local_operation.py test_phase11_end_to_end.py
+```
 
-- Yerel Ollama çalışma modu ana çalışma biçimidir.
-- Qwen Code hesap bağlantısı ve terminal akışı eklendi.
-- Codex CLI hesap bağlantısı eklendi.
-- Hesap tabanlı sağlayıcılar kullanıldığında mutasyon yetkisi doğrudan modele verilmez; model yine incelenebilir değişiklik seti üretir.
-- Bulut kullanımı isteğe bağlıdır ve API anahtarı olmadan yerel çalışma devam eder.
+**v0.3.0 release result:** 55 tests passed.
 
-### Unity üretim yetenekleri
+## Important boundaries
 
-- C# dosyası oluşturma ve kontrollü metin değiştirme
-- GameObject oluşturma
-- Component ekleme ve serialized alan bağlama
-- Prefab ve materyal oluşturma
-- ParticleSystem tabanlı efekt oluşturma
-- Mobil giriş UI'si oluşturma
-- 2D/3D karakter prefabı oluşturma
-- Oyun prototipi ve örnek marble-shooter sahneleri oluşturma
-- Sahne kaydetme, doğrulama ve işlem bazlı geri alma
-
-## Control Center kullanımı
-
-Unity menüsünden `AI Engineer > Control Center` penceresini açın.
-
-1. Çalışma alanını seçin: Oluştur, Analiz, Onar, Oyunlar veya Hafıza.
-2. İsteğinizi doğal Türkçe veya İngilizce yazın.
-3. Gerekirse referans görsel seçin.
-4. Yerel model veya hesap sağlayıcısını seçin.
-5. Önce plan oluşturun ve işlemleri inceleyin.
-6. Yalnızca doğru hedef ve yolları içeren planı otonom uygulayın.
-7. Console, derleme ve Play Mode sonuçlarını kontrol edin.
-8. Gerekirse `Son işlemi geri al` seçeneğini kullanın.
-
-## Kurulum ve yükseltme
+- Local LLaVA analyzes reference images; it does not generate raster images.
+- Complex flattened UI images may be used as backgrounds while editable Unity controls are created separately.
+- Model plans must pass project, API, scene, and asset validation before they run.
+- Qwen Code and Codex account workflows require active CLI sessions.
