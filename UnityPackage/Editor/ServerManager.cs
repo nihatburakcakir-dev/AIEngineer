@@ -12,8 +12,11 @@ namespace AIEngineer.Editor
         private const string BackendRootKey = "AIEngineer.BackendRoot";
         private const string PythonExecutableKey = "AIEngineer.PythonExecutable";
         static Process process;
+        static Process fluxProcess;
         static bool endpointRunning;
+        static bool fluxEndpointRunning;
         static double nextEndpointProbe;
+        static double nextFluxEndpointProbe;
 
         public static string BackendRoot
         {
@@ -73,10 +76,29 @@ namespace AIEngineer.Editor
             }
         }
 
+        public static bool FluxIsRunning
+        {
+            get
+            {
+                try
+                {
+                    if (fluxProcess != null && !fluxProcess.HasExited) return true;
+                }
+                catch { fluxProcess = null; }
+                if (EditorApplication.timeSinceStartup < nextFluxEndpointProbe) return fluxEndpointRunning;
+                nextFluxEndpointProbe = EditorApplication.timeSinceStartup + 2d;
+                fluxEndpointRunning = ProbeEndpoint("http://127.0.0.1:8188/system_stats", 500);
+                return fluxEndpointRunning;
+            }
+        }
+
         public static void Start()
         {
             if (IsRunning)
+            {
+                StartFluxEngine();
                 return;
+            }
 
             string root = BackendRoot;
             if (!HasBackend(root))
@@ -142,6 +164,7 @@ namespace AIEngineer.Editor
                     "[AI] Server Started"
                 );
                 endpointRunning = true;
+                StartFluxEngine();
             }
             catch (System.Exception ex)
             {
@@ -152,6 +175,45 @@ namespace AIEngineer.Editor
                 );
                 process?.Dispose();
                 process = null;
+            }
+        }
+
+        /// <summary>Starts the bundled ComfyUI/Flux runtime when it is installed beside the backend.</summary>
+        public static void StartFluxEngine()
+        {
+            if (FluxIsRunning) return;
+            var comfyRoot = Path.Combine(BackendRoot, "Tools", "ComfyUI");
+            var comfyPython = Path.Combine(comfyRoot, ".venv", "Scripts", "python.exe");
+            var main = Path.Combine(comfyRoot, "main.py");
+            if (!File.Exists(comfyPython) || !File.Exists(main))
+            {
+                UnityEngine.Debug.LogWarning("[AI] Flux.2 runtime was not found at " + comfyRoot);
+                return;
+            }
+
+            fluxProcess = new Process();
+            fluxProcess.StartInfo.FileName = comfyPython;
+            fluxProcess.StartInfo.Arguments = "main.py --listen 127.0.0.1 --port 8188 --disable-auto-launch";
+            fluxProcess.StartInfo.WorkingDirectory = comfyRoot;
+            fluxProcess.StartInfo.UseShellExecute = false;
+            fluxProcess.StartInfo.CreateNoWindow = true;
+            fluxProcess.StartInfo.RedirectStandardOutput = true;
+            fluxProcess.StartInfo.RedirectStandardError = true;
+            fluxProcess.OutputDataReceived += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) UnityEngine.Debug.Log("[Flux] " + e.Data); };
+            fluxProcess.ErrorDataReceived += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) UnityEngine.Debug.Log("[Flux] " + e.Data); };
+            try
+            {
+                fluxProcess.Start();
+                fluxProcess.BeginOutputReadLine();
+                fluxProcess.BeginErrorReadLine();
+                fluxEndpointRunning = true;
+                UnityEngine.Debug.Log("[AI] Flux.2 engine started.");
+            }
+            catch (Exception error)
+            {
+                UnityEngine.Debug.LogError("[AI] Flux.2 engine could not start: " + error.Message);
+                fluxProcess?.Dispose();
+                fluxProcess = null;
             }
         }
 
@@ -168,7 +230,15 @@ namespace AIEngineer.Editor
                 UnityEngine.Debug.LogWarning("[AI] Backend process could not be stopped: " + error.Message);
             }
             finally { process = null; }
+            try
+            {
+                if (fluxProcess != null && !fluxProcess.HasExited) fluxProcess.Kill();
+                fluxProcess?.Dispose();
+            }
+            catch (System.Exception error) { UnityEngine.Debug.LogWarning("[AI] Flux process could not be stopped: " + error.Message); }
+            finally { fluxProcess = null; }
             endpointRunning = false;
+            fluxEndpointRunning = false;
 
             UnityEngine.Debug.Log(
                 "[AI] Server Stopped"
@@ -182,13 +252,15 @@ namespace AIEngineer.Editor
             Start();
         }
 
-        private static bool ProbeEndpoint()
+        private static bool ProbeEndpoint() => ProbeEndpoint("http://127.0.0.1:8080/health", 250);
+
+        private static bool ProbeEndpoint(string url, int timeout)
         {
             try
             {
-                var request = WebRequest.CreateHttp("http://127.0.0.1:8080/health");
+                var request = WebRequest.CreateHttp(url);
                 request.Method = "GET";
-                request.Timeout = 250;
+                request.Timeout = timeout;
                 using var response = (HttpWebResponse)request.GetResponse();
                 return response.StatusCode == HttpStatusCode.OK;
             }

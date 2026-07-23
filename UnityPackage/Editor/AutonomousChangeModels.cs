@@ -53,6 +53,9 @@ namespace AIEngineer.Editor.Autonomy
         public string shader;
         public string color;
         public string sourceImagePath;
+        public string outputPath;
+        public string prompt;
+        public string importType;
         public string dimension;
         public string gameKey;
         public string title;
@@ -73,6 +76,8 @@ namespace AIEngineer.Editor.Autonomy
         public string value;
         public string valueType;
         public bool overwrite;
+        public bool transparent;
+        public float editStrength = 0.78f;
         public float[] position;
         public float[] rotation;
         public float[] scale;
@@ -80,6 +85,8 @@ namespace AIEngineer.Editor.Autonomy
         public float startSpeed = 3f;
         public float startSize = 0.35f;
         public int maxParticles = 120;
+        public int width = 1024;
+        public int height = 1024;
         public string shape;
         public string[] systems;
         public AutonomousComponentSpec[] components;

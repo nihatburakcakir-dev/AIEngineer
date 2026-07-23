@@ -3,6 +3,7 @@
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from pathlib import Path
 import sys
 import traceback
 
@@ -13,6 +14,7 @@ except Exception:
     pass
 
 from Source.Core.Config.config_manager import ConfigManager
+from Source.Core.AssetGeneration import ComfyUiProvider, ImageGenerationRequest, ImageGenerationService
 from Source.Core.Models.change_protocol import ALLOWED_KINDS, PROTOCOL, ProtocolError
 from Source.Core.Planner.autonomous_change_planner import AutonomousChangePlanner
 from Source.Knowledge.importer import Importer
@@ -76,6 +78,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/v1/repair":
                 self._json(200, planner().repair(data).to_dict())
                 return
+            if self.path == "/v1/assets/image":
+                self._generate_image(data)
+                return
             if self.path in {"/", "/v1/legacy-plan"}:
                 self._legacy_plan(data)
                 return
@@ -100,6 +105,43 @@ class Handler(BaseHTTPRequestHandler):
             "workflow": "AI Workflow",
             "tasks": [{"action": task.action, "target": task.target} for task in tasks],
         })
+
+    def _generate_image(self, data):
+        operation = data.get("operation") if isinstance(data.get("operation"), dict) else data
+        project_root = str(data.get("projectPath", "")).strip()
+        config = ConfigManager()
+        reference = str(operation.get("sourceImagePath", "")).replace("\\", "/").strip()
+        reference_path = ""
+        if reference:
+            if not reference.startswith("Assets/"):
+                raise ValueError("generate_image sourceImagePath must be a Unity Assets path.")
+            candidate = (Path(project_root) / reference).resolve()
+            assets_root = (Path(project_root) / "Assets").resolve()
+            if assets_root not in candidate.parents or not candidate.is_file():
+                raise ValueError("generate_image reference image was not found under Unity Assets.")
+            reference_path = str(candidate)
+        edit_strength = operation.get("editStrength", 0.78)
+        if isinstance(edit_strength, bool) or not isinstance(edit_strength, (int, float)) or not 0.05 <= float(edit_strength) <= 1.0:
+            raise ValueError("generate_image editStrength must be a number from 0.05 to 1.0.")
+        request = ImageGenerationRequest(
+            prompt=str(operation.get("prompt", "")).strip(),
+            output_path=str(operation.get("outputPath", "")).replace("\\", "/"),
+            project_root=project_root,
+            model=config.comfyui_model_file,
+            width=operation.get("width"), height=operation.get("height"),
+            transparent=bool(operation.get("transparent", False)), overwrite=bool(operation.get("overwrite", False)),
+            reference_image_path=reference_path,
+            edit_strength=float(edit_strength),
+        )
+        if not request.prompt or not request.output_path or not isinstance(request.width, int) or not isinstance(request.height, int):
+            raise ValueError("generate_image requires prompt, outputPath, width and height.")
+        if not config.comfyui_workflow_path:
+            raise ValueError("comfyui_workflow_path is not configured. Export an API workflow from ComfyUI and set its path in ai_config.json.")
+        result = ImageGenerationService(ComfyUiProvider(
+            config.comfyui_endpoint, config.comfyui_workflow_path, config.comfyui_timeout,
+            reference_workflow_path=config.comfyui_reference_workflow_path,
+        )).generate(request)
+        self._json(200, {"outputPath": result.output_path, "mediaType": result.media_type, "provider": result.provider, "metadata": result.metadata})
 
     def _health(self):
         config = ConfigManager()

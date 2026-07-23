@@ -23,6 +23,7 @@ _OPERATION_REQUIRED_FIELDS = {
     "create_ui_screen": ("name", "title"),
     "build_character": ("name", "sourceImagePath", "dimension"),
     "generate_prototype": ("gameKey", "name"),
+    "generate_image": ("prompt", "outputPath", "width", "height"),
     "save_scene": (),
 }
 

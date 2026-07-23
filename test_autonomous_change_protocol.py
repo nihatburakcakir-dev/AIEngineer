@@ -46,6 +46,10 @@ class FakeConfig:
         return "cloud:test"
 
 
+class OrchestrationConfig(FakeConfig):
+    orchestration_enabled = True
+
+
 class FakeRouter:
     def __init__(self, responses):
         self.responses = list(responses)
@@ -105,6 +109,29 @@ class AutonomousChangeProtocolTests(unittest.TestCase):
         unknown["operations"][0]["kind"] = "run_shell"
         with self.assertRaises(ProtocolError):
             ChangeSetParser().parse(unknown)
+
+    def test_parser_accepts_bounded_generate_image_operation(self):
+        response = json.loads(valid_response())
+        response["operations"] = [{
+            "id": "image", "kind": "generate_image", "prompt": "blue wolf projectile",
+            "outputPath": "Assets/AIEngineerGenerated/Textures/Wolf.png",
+            "width": 1024, "height": 1024, "transparent": True, "importType": "Sprite",
+        }]
+
+        operation = ChangeSetParser().parse(response).operations[0]
+
+        self.assertEqual(operation.payload["outputPath"], "Assets/AIEngineerGenerated/Textures/Wolf.png")
+        self.assertEqual(operation.payload["importType"], "Sprite")
+
+    def test_parser_rejects_unsafe_or_invalid_generated_image_settings(self):
+        response = json.loads(valid_response())
+        response["operations"] = [{
+            "id": "image", "kind": "generate_image", "prompt": "blue wolf",
+            "outputPath": "Assets/Textures/Wolf.jpg", "width": 32, "height": "1024",
+        }]
+
+        with self.assertRaisesRegex(ProtocolError, "outputPath"):
+            ChangeSetParser().parse(response)
 
     def test_legacy_generated_paths_are_routed_outside_the_protected_package(self):
         response = json.loads(valid_response())
@@ -253,6 +280,15 @@ class AutonomousChangeProtocolTests(unittest.TestCase):
         self.assertEqual(result.operations[0].kind, "write_text")
         self.assertEqual(len(router.calls), 2)
         self.assertIn("failed protocol/project validation", router.calls[1]["prompt"])
+
+    def test_local_orchestrator_hands_one_request_from_planner_to_code_specialist(self):
+        brief = json.dumps({"behavior": ["Create a wolf prefab"], "distribution": ["Flux image asset", "Qwen Coder Unity wiring"], "feedback": [], "integration": [], "acceptance": []})
+        router = FakeRouter([brief, valid_response()])
+        planner = AutonomousChangePlanner(config=OrchestrationConfig(), router=router, context_builder=FakeContext())
+        result = planner.plan({"prompt": "Create a wolf prefab with a yellow visual", "projectPath": "C:/Unity", "modelMode": "local"})
+        self.assertEqual(result.operations[0].kind, "write_text")
+        self.assertEqual([call["task"] for call in router.calls], ["feature_analysis", "code_generation"])
+        self.assertIn("Flux image asset", router.calls[1]["prompt"])
 
     def test_default_planner_allows_two_grounding_retries_for_feature_code(self):
         planner = AutonomousChangePlanner(config=FakeConfig(), router=FakeRouter([valid_response()]), context_builder=FakeContext())

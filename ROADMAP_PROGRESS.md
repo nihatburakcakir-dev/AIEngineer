@@ -1,5 +1,17 @@
 # ROADMAP PROGRESS
 
+## v0.3.1: Gorsel Uretimi
+
+**Durum: TAMAMLANDI (23 Temmuz 2026)**
+
+- Ilk guvenli dilim tamamlandi: `Source/Core/AssetGeneration` altinda saglayicidan bagimsiz image-generation siniri kuruldu.
+- `ImageGenerationService`, sadece onceden onaylanmis change-set hedef yoluna yazilmis PNG sonucunu kabul eder; farkli hedef yol veya medya turu guvenli bicimde reddedilir.
+- `generate_image` operation kind'i acildi: PNG hedefi, boyut, import tipi ve generated-output klasoru Python tarafinda dogrulaniyor.
+- ComfyUI API workflow saglayicisi eklendi. Unity, uretimden once hedefi transaction'a snapshot'lar; basarisizlikta is geri alinir. Basarili PNG otomatik import edilir ve Sprite istenmisse alpha ile Sprite importer ayari uygulanir.
+- Kurulum gereksinimi: ComfyUI'den API-format workflow disari aktarilmali ve `ai_config.json` icindeki `comfyui_workflow_path` alanina yazilmalidir. Workflow, `$prompt`, `$width`, `$height` ve `$transparent` tokenlarini kullanabilir.
+- 2D uretim modeli yol haritasindaki kesin karara sabitlendi: `FLUX.2-klein-4B`. ComfyUI API workflow'undaki ilgili loader alaninda `$model` tokeni kullanilmalidir.
+- v0.3.1 tamamlandi: Referans gorselden image-to-image duzenleme, tek-prompt uzman orkestrasyonu, Control Center icinden drag-drop/Ctrl+V referans alma ve Flux.2 Klein 4B ile Unity Sprite import akisi eklendi.
+
 ## FAZ 11: Uctan Uca Akis
 
 **Durum: TAMAMLANDI (21 Temmuz 2026)**

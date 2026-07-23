@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -17,6 +18,7 @@ namespace AIEngineer.Editor.Autonomy
         private static readonly HashSet<string> FileKinds = new(StringComparer.Ordinal)
         {
             "write_text", "replace_text", "delete_asset", "create_folder",
+            "generate_image",
         };
 
         public static void ApplyFilePhase(AutonomousChangeSet changeSet, ChangeSetTransaction transaction)
@@ -65,6 +67,15 @@ namespace AIEngineer.Editor.Autonomy
                         else if (!string.IsNullOrWhiteSpace(operation.scenePath)) RequireAsset<SceneAsset>(operation.scenePath, operation.kind);
                         else RequireSceneObject(operation.name, operation.kind);
                         break;
+                    case "generate_image":
+                        RequireAsset<Texture2D>(operation.outputPath, operation.kind);
+                        if (string.Equals(operation.importType, "Sprite", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var importer = AssetImporter.GetAtPath(operation.outputPath) as TextureImporter;
+                            if (importer == null || importer.textureType != TextureImporterType.Sprite)
+                                throw new InvalidOperationException($"Validation failed: {operation.kind} did not import a Sprite at '{operation.outputPath}'.");
+                        }
+                        break;
                     case "add_component":
                         var target = RequireSceneObject(operation.targetPath, operation.kind);
                         var componentType = ResolveComponentType(operation.component);
@@ -100,6 +111,7 @@ namespace AIEngineer.Editor.Autonomy
                 case "replace_text": ReplaceText(operation, transaction); break;
                 case "delete_asset": DeleteAsset(operation, transaction); break;
                 case "create_folder": transaction.Snapshot(operation.path); CreateFolder(operation.path); break;
+                case "generate_image": GenerateImage(operation, transaction); break;
                 default: throw new InvalidOperationException("Unsupported file operation: " + operation.kind);
             }
         }
@@ -121,6 +133,57 @@ namespace AIEngineer.Editor.Autonomy
                 case "generate_prototype": AutonomousPrototypeBuilder.Build(operation, transaction); break;
                 case "save_scene": transaction.SnapshotActiveScene(); EditorSceneManager.SaveOpenScenes(); break;
                 default: throw new InvalidOperationException("Unsupported Unity operation: " + operation.kind);
+            }
+        }
+
+        [Serializable]
+        private sealed class GeneratedImageRequest
+        {
+            public string projectPath;
+            public AutonomousChangeOperation operation;
+        }
+
+        private static void GenerateImage(AutonomousChangeOperation operation, ChangeSetTransaction transaction)
+        {
+            var outputPath = ChangeSetTransaction.NormalizeAssetPath(operation.outputPath);
+            transaction.Snapshot(outputPath);
+            var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+            var payload = JsonUtility.ToJson(new GeneratedImageRequest { projectPath = projectRoot, operation = operation });
+            var request = WebRequest.CreateHttp("http://127.0.0.1:8080/v1/assets/image");
+            request.Method = "POST";
+            request.ContentType = "application/json";
+            request.Timeout = 195000;
+            var bytes = System.Text.Encoding.UTF8.GetBytes(payload);
+            request.ContentLength = bytes.Length;
+            using (var stream = request.GetRequestStream()) stream.Write(bytes, 0, bytes.Length);
+            try
+            {
+                using var response = (HttpWebResponse)request.GetResponse();
+                using var reader = new StreamReader(response.GetResponseStream());
+                var responseBody = reader.ReadToEnd();
+                if (response.StatusCode != HttpStatusCode.OK)
+                    throw new InvalidOperationException("Image generation backend returned " + response.StatusCode + ": " + responseBody);
+            }
+            catch (WebException error)
+            {
+                var responseBody = string.Empty;
+                if (error.Response != null)
+                {
+                    using var reader = new StreamReader(error.Response.GetResponseStream());
+                    responseBody = reader.ReadToEnd();
+                }
+                throw new InvalidOperationException("Image generation failed: " + responseBody, error);
+            }
+            if (!File.Exists(transaction.FullPath(outputPath)))
+                throw new InvalidOperationException("Image generation completed without creating: " + outputPath);
+            AssetDatabase.ImportAsset(outputPath, ImportAssetOptions.ForceSynchronousImport);
+            if (string.Equals(operation.importType, "Sprite", StringComparison.OrdinalIgnoreCase))
+            {
+                var importer = AssetImporter.GetAtPath(outputPath) as TextureImporter;
+                if (importer == null) throw new InvalidOperationException("Generated image has no TextureImporter: " + outputPath);
+                importer.textureType = TextureImporterType.Sprite;
+                importer.alphaIsTransparency = true;
+                importer.SaveAndReimport();
             }
         }
 

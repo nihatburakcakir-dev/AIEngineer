@@ -21,6 +21,9 @@ Use protocol ai-engineer.change-set/v1 and only these operation kinds:
 write_text, replace_text, delete_asset, create_folder, create_scene, create_game_object,
 add_component, set_property, create_prefab, instantiate_prefab, create_material,
 create_effect, create_ui_screen, build_character, generate_prototype, save_scene.
+generate_image is available for a new PNG under Assets/AIEngineerGenerated only. It requires prompt, outputPath, width and height; set importType to Sprite or Default.
+
+This is a single-request orchestration system: a planning specialist has already decomposed the user intent, you are the code/Unity specialist, and Unity dispatches generate_image operations to Flux.2 automatically. Do not ask the user to choose a model or press a second tool button. Keep every needed artifact in one change set.
 
 Decide the user's intent from meaning and project context, not from hard-coded keywords.
 For a question, explanation, analysis, or recommendation that does not explicitly request a project mutation, return:
@@ -83,7 +86,7 @@ class AutonomousChangePlanner:
         visual_path = Path(project_root) / image_path if image_path.startswith("Assets/") else Path(image_path)
         visual = self._visual_context(str(visual_path), vision_mode) if image_path else None
         mode = str(request.get("modelMode", "local"))
-        feature_blueprint = self._feature_blueprint(prompt, context, mode)
+        feature_blueprint = self._orchestration_brief(prompt, context, mode)
         return self._generate_and_parse(
             self._planning_prompt(prompt, context, visual, feature_blueprint),
             mode,
@@ -365,10 +368,14 @@ Original task and context:
             raise FileNotFoundError(f"Reference image not found: {path}")
         return self.vision_router.analyze(path, mode=mode).to_dict()
 
-    def _feature_blueprint(self, prompt: str, context: dict[str, Any], mode: str) -> str:
-        normalized = UnityProjectContext._normalise(prompt)
-        gameplay_terms = ("bomba", "bomb", "zincir", "chain", "mermi", "projectile", "dusman", "enemy", "patlama", "explosion", "powerup", "combat")
-        if mode != "local" or not any(term in normalized for term in gameplay_terms):
+    def _orchestration_brief(self, prompt: str, context: dict[str, Any], mode: str) -> str:
+        """Create a model-to-model handoff before the code specialist emits a change set.
+
+        Qwen 3.6 owns intent decomposition. Qwen Coder receives this bounded brief and
+        owns the executable Unity manifest/code. Asset operations remain in the same
+        manifest and the executor dispatches them to Flux without another UI action.
+        """
+        if mode != "local" or not getattr(self.config, "orchestration_enabled", False):
             return ""
         compact_context = {
             "active_scene": context.get("active_scene"),
@@ -378,10 +385,13 @@ Original task and context:
             "unity_documentation": context.get("unity_documentation", []),
         }
         return self.router.generate(
-            "Design a complete Unity gameplay feature blueprint for the request. JSON only. Every applicable responsibility must be concrete and use only the supplied project APIs/assets.\n"
+            "Decompose this one Unity request into a specialist handoff JSON. JSON only. "
+            "behavior: requested Unity outcome; distribution: implementation responsibilities and which outputs need code, image assets or 3D assets; "
+            "feedback: visual/audio requirements; integration: exact project targets; acceptance: observable checks. "
+            "Do not write final code or a change-set. Use only supplied project APIs/assets.\n"
             + prompt + "\nProject evidence:\n" + json.dumps(compact_context, ensure_ascii=False),
             task="feature_analysis",
-            system="Return behavior, distribution, feedback, integration and acceptance arrays. Explicitly cover how the feature is spawned/triggered and how it updates existing gameplay state.",
+            system="You are the orchestration planner. Return behavior, distribution, feedback, integration and acceptance arrays. State which specialist should produce each artifact: qwen3-coder for C# or Unity wiring, Flux.2 for 2D images, and Hunyuan 3D only when its provider is installed. Explicitly cover how features are triggered and integrated.",
             mode=mode,
         )
 
@@ -397,11 +407,11 @@ Unity project context (bounded, real project data):
 Reference-image analysis:
 {visual_text}
 
-Mandatory gameplay-feature blueprint from the first local reasoning pass:
+Mandatory specialist handoff from the first local reasoning pass:
 {feature_blueprint or "Not required for this request."}
 
 Attached reference image asset path: {str(context.get("reference_image_path", ""))}
 
-Produce every operation required for a complete result. Include code, scene/prefab/effect operations and validation as appropriate. When a gameplay-feature blueprint is present, every applicable blueprint responsibility and acceptance item must be implemented; do not move missing work into warnings.
+Produce every operation required for a complete result. You are the code/Unity specialist: include code, scene/prefab/effect operations and validation as appropriate. When the handoff calls for a 2D asset, include generate_image in this same change set; Unity will dispatch it to Flux.2 automatically. If an attached reference image must be modified, set generate_image.sourceImagePath to the attached reference asset path and use an explicit edit prompt. When the handoff calls for a 3D asset and no installed provider is listed in project context, return a bounded build_character placeholder plan or an answer explaining the missing provider; never pretend a Hunyuan mesh was generated. Implement every applicable handoff responsibility and acceptance item; do not move missing work into warnings.
 
 MANDATORY OUTPUT LANGUAGE: {requested_language}. All user-visible JSON fields (summary, answer, explanation, warnings and validation.checks) must be {requested_language}; do not use the other language."""

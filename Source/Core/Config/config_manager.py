@@ -79,6 +79,10 @@ class ConfigManager:
         return self.model_routes.get(task, self.model_routes["chat"])
 
     @property
+    def orchestration_enabled(self):
+        return bool(self.config.get("orchestration_enabled", True))
+
+    @property
     def cloud_provider(self):
         return self.config.get("cloud_provider", "openrouter")
 
@@ -159,3 +163,27 @@ class ConfigManager:
     @property
     def codex_timeout(self):
         return int(self.config.get("codex_timeout", 300))
+
+    @property
+    def comfyui_endpoint(self):
+        return self.config.get("comfyui_endpoint", "http://127.0.0.1:8188")
+
+    @property
+    def comfyui_model(self):
+        return self.config.get("comfyui_model", "FLUX.2-klein-4B")
+
+    @property
+    def comfyui_model_file(self):
+        return self.config.get("comfyui_model_file", "flux-2-klein-4b.safetensors")
+
+    @property
+    def comfyui_workflow_path(self):
+        return self.config.get("comfyui_workflow_path", "")
+
+    @property
+    def comfyui_reference_workflow_path(self):
+        return self.config.get("comfyui_reference_workflow_path", "")
+
+    @property
+    def comfyui_timeout(self):
+        return int(self.config.get("comfyui_timeout", 180))

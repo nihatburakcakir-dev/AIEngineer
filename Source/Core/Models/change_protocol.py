@@ -21,9 +21,9 @@ ALLOWED_KINDS = {
     "write_text", "replace_text", "delete_asset", "create_folder",
     "create_scene", "create_game_object", "add_component", "set_property",
     "create_prefab", "instantiate_prefab", "create_material", "create_effect", "create_ui_screen",
-    "build_character", "generate_prototype", "save_scene",
+    "build_character", "generate_prototype", "generate_image", "save_scene",
 }
-PATH_FIELDS = ("path", "assetPath", "scenePath")
+PATH_FIELDS = ("path", "assetPath", "scenePath", "outputPath")
 UNITY_SERIALIZED_EXTENSIONS = {".prefab", ".unity", ".mat", ".asset", ".controller"}
 HIGH_RISK_KINDS = {"delete_asset"}
 MAX_OPERATIONS = 48
@@ -238,6 +238,10 @@ class ChangeSetParser:
             self._require(payload, index, "name", "title")
             if payload.get("sourceImagePath"):
                 payload["sourceImagePath"] = self.safe_asset_path(payload["sourceImagePath"])
+            if "editStrength" in payload:
+                value = payload["editStrength"]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.05 <= float(value) <= 1.0:
+                    raise ProtocolError(f"Operation {index} generate_image editStrength must be a number from 0.05 to 1.0.")
             asset_path = str(payload.get("assetPath", "")).replace("\\", "/")
             if asset_path.casefold().endswith(".unity"):
                 payload.setdefault("scenePath", asset_path)
@@ -266,6 +270,25 @@ class ChangeSetParser:
             self._require(payload, index, "name", "sourceImagePath", "dimension")
         elif kind == "generate_prototype":
             self._require(payload, index, "gameKey", "name")
+        elif kind == "generate_image":
+            self._require(payload, index, "prompt", "outputPath", "width", "height")
+            output_path = str(payload["outputPath"])
+            if not output_path.casefold().endswith(".png"):
+                raise ProtocolError(f"Operation {index} generate_image outputPath must end in .png: {output_path}")
+            if not output_path.casefold().startswith("assets/aiengineergenerated/"):
+                raise ProtocolError(f"Operation {index} generate_image outputPath must be under Assets/AIEngineerGenerated: {output_path}")
+            for field_name in ("width", "height"):
+                field_value = payload[field_name]
+                if isinstance(field_value, bool) or not isinstance(field_value, int) or not 64 <= field_value <= 4096:
+                    raise ProtocolError(f"Operation {index} generate_image {field_name} must be an integer from 64 to 4096.")
+            if "transparent" in payload and not isinstance(payload["transparent"], bool):
+                raise ProtocolError(f"Operation {index} generate_image transparent must be boolean.")
+            if payload.get("sourceImagePath"):
+                payload["sourceImagePath"] = self.safe_asset_path(payload["sourceImagePath"])
+            import_type = str(payload.get("importType", "Sprite"))
+            if import_type not in {"Sprite", "Default"}:
+                raise ProtocolError(f"Operation {index} generate_image importType must be Sprite or Default.")
+            payload["importType"] = import_type
         return ChangeOperation(self._safe_id(value.get("id"), prefix=f"op{index}"), kind, payload)
 
     @staticmethod

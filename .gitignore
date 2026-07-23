@@ -74,6 +74,10 @@ ai_config.json
 .runtime/
 Tools/QwenCode/
 
+# Local ComfyUI runtime and downloaded model weights are installed separately.
+# The portable API workflow templates live in Tools/Workflows instead.
+Tools/ComfyUI/
+
 # Local Unity documentation/search corpus (about 1 GB; never publish)
 Documents/Unity/UnityDocumentation/
 

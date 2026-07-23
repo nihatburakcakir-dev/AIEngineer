@@ -4,6 +4,7 @@ import base64
 import json
 from pathlib import Path
 from typing import Any, Callable
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from Source.Core.Vision.image_parser import ImageParseError, ImageParser
@@ -73,8 +74,14 @@ Use only visible evidence. Keep strings short. Use [] or empty strings when unce
     def _ollama_transport(self, payload: dict[str, Any]) -> dict[str, Any]:
         request = Request(self.endpoint, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
         try:
-            with urlopen(request, timeout=60) as response:
+            # Large local vision models can take longer on their first request while
+            # Ollama moves weights into VRAM. Do not report that healthy models are
+            # unavailable merely because this warm-up exceeds a short HTTP timeout.
+            with urlopen(request, timeout=180) as response:
                 return json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")[:600]
+            raise RuntimeError(f"Local vision model returned HTTP {error.code}: {detail}") from error
         except OSError as error:
             raise RuntimeError(f"Local vision model is unavailable at {self.endpoint}. Start Ollama with a multimodal model such as '{self.model}'.") from error
 

@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
+using Process = System.Diagnostics.Process;
+using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 using AIEngineer.Editor.Autonomy;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -17,6 +20,9 @@ namespace AIEngineer.Editor
         private static Texture2D HeaderTexture;
         private static Texture2D SidebarTexture;
         private static Texture2D InspectorTexture;
+        private static Texture2D PrimaryButtonTexture;
+        private static Texture2D SecondaryButtonTexture;
+        private static Texture2D ActiveButtonTexture;
         private int activeSection;
         private int selectedQuickPrompt;
         private string prompt;
@@ -28,6 +34,10 @@ namespace AIEngineer.Editor
         private int modelModeIndex;
         private bool fullAutonomy = true;
         private int maxRepairAttempts = 3;
+        private string imagePrompt;
+        private string imageOutputName;
+        private int imageSizeIndex = 1;
+        private float imageEditStrength = 0.78f;
         private Vector2 workspaceScroll;
         private Vector2 responseScroll;
 
@@ -42,9 +52,12 @@ namespace AIEngineer.Editor
         private void OnEnable()
         {
             EnsureTextures();
+            activeSection = Mathf.Clamp(activeSection, 0, AIEngineerLocalization.Sections.Length - 1);
             if (string.IsNullOrWhiteSpace(prompt)) prompt = AIEngineerLocalization.DefaultPrompt;
             if (string.IsNullOrWhiteSpace(status)) status = L("Hazir. Bir istek yazin veya hazir gorev secin.", "Ready. Enter a request or choose a quick task.");
             if (string.IsNullOrWhiteSpace(lastResponse)) lastResponse = L("Henuz bir yanit yok.", "No response yet.");
+            if (string.IsNullOrWhiteSpace(imagePrompt)) imagePrompt = L("2D oyun Sprite'i, temiz siluet, metinsiz", "2D game Sprite, clean silhouette, no text");
+            if (string.IsNullOrWhiteSpace(imageOutputName)) imageOutputName = "GeneratedSprite";
         }
 
         private void OnGUI()
@@ -90,14 +103,16 @@ namespace AIEngineer.Editor
         {
             var sidebar = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 12, 12) };
             sidebar.normal.background = SidebarTexture;
-            EditorGUILayout.BeginVertical(sidebar, GUILayout.Width(154f), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(sidebar, GUILayout.Width(124f), GUILayout.ExpandHeight(true));
             var sections = AIEngineerLocalization.Sections;
             GUILayout.Label(L("CALISMA ALANI", "WORKSPACE"), SmallLabelStyle());
             GUILayout.Space(8f);
             for (var index = 0; index < sections.Length; index++)
             {
                 var selected = activeSection == index;
-                var button = new GUIStyle(EditorStyles.miniButton) { alignment = TextAnchor.MiddleLeft, fixedHeight = 34f };
+                var button = new GUIStyle(GUI.skin.button) { alignment = TextAnchor.MiddleLeft, fixedHeight = 30f, padding = new RectOffset(12, 8, 4, 4) };
+                button.normal.background = selected ? ActiveButtonTexture : SecondaryButtonTexture;
+                button.hover.background = ActiveButtonTexture;
                 button.normal.textColor = selected ? new Color(0.72f, 0.92f, 1f) : new Color(0.78f, 0.8f, 0.84f);
                 if (GUILayout.Button((selected ? "◆  " : "   ") + sections[index], button))
                 {
@@ -126,64 +141,38 @@ namespace AIEngineer.Editor
             var previousQuickPrompt = selectedQuickPrompt;
             selectedQuickPrompt = EditorGUILayout.Popup(L("Hazir gorev", "Quick task"), selectedQuickPrompt, quickPrompts);
             if (selectedQuickPrompt != previousQuickPrompt) prompt = quickPrompts[selectedQuickPrompt];
-            GUILayout.Label(L("Talimat", "Instruction"), SmallLabelStyle());
-            prompt = EditorGUILayout.TextArea(prompt, EditorStyles.textArea, GUILayout.MinHeight(148f), GUILayout.ExpandHeight(false));
+            GUILayout.Label(L("Tek talimat", "Single instruction"), SmallLabelStyle());
+            var instructionRect = GUILayoutUtility.GetRect(GUIContent.none, EditorStyles.textArea, GUILayout.MinHeight(148f), GUILayout.ExpandWidth(true));
+            HandleReferenceInput(instructionRect, true);
+            prompt = EditorGUI.TextArea(instructionRect, prompt, EditorStyles.textArea);
+            DrawReferenceDropZone();
             GUILayout.Space(6f);
-            EditorGUILayout.BeginHorizontal();
-            modelModeIndex = EditorGUILayout.Popup(L("Model", "Model"), modelModeIndex, new[]
-            {
-                L("Yerel (30B / otonom)", "Local (30B / autonomous)"),
-                L("Qwen (hesap > Codex)", "Qwen (account > Codex)"),
-                L("Codex Plus (hesap > Qwen)", "Codex Plus (account > Qwen)"),
-                L("Bulut (API anahtari)", "Cloud (API key)"),
-            }, GUILayout.Width(260f));
-            fullAutonomy = EditorGUILayout.ToggleLeft(L("Tam otonom (HIGH risk haric)", "Full autonomy (except HIGH risk)"), fullAutonomy, GUILayout.Width(220f));
-            GUILayout.Label(L("Duzeltme", "Repairs"), GUILayout.Width(58f));
-            maxRepairAttempts = EditorGUILayout.IntSlider(maxRepairAttempts, 1, 3, GUILayout.Width(150f));
-            EditorGUILayout.EndHorizontal();
+            modelModeIndex = 0;
+            GUILayout.Label(L("Yonlendirme: otomatik uzman agi", "Routing: automatic specialist network"), SmallLabelStyle());
+            fullAutonomy = EditorGUILayout.ToggleLeft(L("Tam otonom (HIGH risk haric)", "Full autonomy (except HIGH risk)"), fullAutonomy);
+            maxRepairAttempts = EditorGUILayout.IntSlider(L("Duzeltme", "Repairs"), maxRepairAttempts, 1, 3);
             var localModelStatus = LocalModelDownloadMonitor.Current;
             var modelMessageType = localModelStatus.State == LocalModelDownloadState.Ready
                 ? MessageType.Info
                 : localModelStatus.State == LocalModelDownloadState.Downloading ? MessageType.Warning : MessageType.None;
-            EditorGUILayout.BeginHorizontal();
             EditorGUILayout.HelpBox(localModelStatus.Message, modelMessageType);
-            if (GUILayout.Button(L("Model durumunu yenile", "Refresh model status"), GUILayout.Width(130f), GUILayout.Height(38f)))
+            if (GUILayout.Button(L("Durumu yenile", "Refresh status"), SecondaryButtonStyle(), GUILayout.Height(22f)))
             {
                 LocalModelDownloadMonitor.Refresh();
                 Repaint();
             }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label(L("Referans gorsel", "Reference image"), GUILayout.Width(100f));
-            EditorGUILayout.SelectableLabel(string.IsNullOrWhiteSpace(referenceImagePath) ? L("Secilmedi", "Not selected") : referenceImagePath, EditorStyles.textField, GUILayout.Height(20f));
-            if (GUILayout.Button(L("Gorsel sec", "Choose image"), GUILayout.Width(92f))) ChooseReferenceImage();
-            if (!string.IsNullOrWhiteSpace(referenceImagePath) && GUILayout.Button(L("Temizle", "Clear"), GUILayout.Width(60f))) referenceImagePath = string.Empty;
-            EditorGUILayout.EndHorizontal();
             GUILayout.Space(8f);
-            EditorGUILayout.BeginHorizontal();
             GUI.enabled = !isRunning && !AutonomousJobRunner.IsBusy && !string.IsNullOrWhiteSpace(prompt);
-            if (GUILayout.Button(isRunning ? L("Yerel model dusunuyor...", "Local model is thinking...") : L("Yerel modele gonder", "Send to local model"), PrimaryButtonStyle(), GUILayout.Height(38f))) SendPlanRequest();
+            if (GUILayout.Button(isRunning ? L("Uzmanlar birlikte calisiyor...", "Specialists are collaborating...") : L("Istedigi planla ve uzmanlara yonlendir", "Plan request and route to specialists"), PrimaryButtonStyle(), GUILayout.Height(32f))) SendPlanRequest();
             GUI.enabled = true;
-            if (GUILayout.Button(L("Yerel motoru baslat", "Start local engine"), GUILayout.Height(38f), GUILayout.Width(150f)))
-            {
-                ServerManager.Start();
-                status = ServerManager.IsRunning
-                    ? L("Yerel motor baslatildi.", "Local engine started.")
-                    : L("Yerel motor baslatilamadi; Console kaydini kontrol edin.", "Local engine could not start; check the Console.");
-            }
-            EditorGUILayout.EndHorizontal();
-            if (GUILayout.Button(L("Qwen / Codex hesabini bagla", "Connect Qwen / Codex account"), GUILayout.Height(26f)))
-                AIEngineerProviderWindow.Open();
             GUI.enabled = !isRunning && !AutonomousJobRunner.IsBusy && pendingChangeSet != null;
-            if (GUILayout.Button(L("Onayla ve otonom uygula", "Approve and apply autonomously"), GUILayout.Height(34f))) ApplyPendingChangeSet();
+            if (GUILayout.Button(L("Onayla ve otonom uygula", "Approve and apply autonomously"), SecondaryButtonStyle(), GUILayout.Height(28f))) ApplyPendingChangeSet();
             GUI.enabled = true;
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label(L("OTONOM IS", "AUTONOMOUS JOB"), SmallLabelStyle(), GUILayout.Width(90f));
-            GUILayout.Label(AutonomousJobRunner.LastStatus, MutedStyle(), GUILayout.ExpandWidth(true));
+            GUILayout.Label(L("OTONOM IS", "AUTONOMOUS JOB"), SmallLabelStyle());
+            GUILayout.Label(AutonomousJobRunner.LastStatus, MutedStyle());
             GUI.enabled = !AutonomousJobRunner.IsBusy;
-            if (GUILayout.Button(L("Son islemi geri al", "Roll back last"), GUILayout.Width(125f))) RollbackLastJob();
+            if (GUILayout.Button(L("Son islemi geri al", "Roll back last"), SecondaryButtonStyle(), GUILayout.Height(22f))) RollbackLastJob();
             GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
             GUILayout.Space(12f);
             GUILayout.Label(L("YANIT ONIZLEME", "RESPONSE PREVIEW"), SmallLabelStyle());
             responseScroll = EditorGUILayout.BeginScrollView(responseScroll, EditorStyles.helpBox, GUILayout.MinHeight(180f), GUILayout.MaxHeight(320f), GUILayout.ExpandHeight(true));
@@ -205,60 +194,247 @@ namespace AIEngineer.Editor
             DrawCheck(L("Gorsel kanit", "Visual evidence"), L("Gorsel analiz incelenebilir kalir", "Image analysis stays reviewable"));
             DrawCheck(L("Unity bilgisi", "Unity knowledge"), L("URP ve proje baglami kontrol edilir", "URP and project context checked"));
             DrawCheck(L("Muhendislik elestirisi", "Critique"), L("Risk ve alternatifler once gosterilir", "Risk and alternatives shown first"));
-            DrawCheck(L("Hafiza", "Memory"), L("Ilgili gecmis dersler plana eklenir", "Relevant past lessons attached"));
+            DrawCheck(L("Varlik uretimi", "Asset generation"), L("Flux Sprite'lari ayni guvenli is hatti ile uretilir", "Flux Sprites use the same guarded job pipeline"));
             GUILayout.Space(14f);
             GUILayout.Label(L("DURUM", "STATUS"), SmallLabelStyle());
             EditorGUILayout.HelpBox(status, isRunning ? MessageType.Info : MessageType.None);
             GUILayout.Space(8f);
-            GUILayout.Label(L("PAKET ICERIGI", "PACKAGE CONTENT"), SmallLabelStyle());
-            GUILayout.Label(L("- Ana planlayici ve dogrulayicilar", "- Core planner and validators"), MutedStyle());
-            GUILayout.Label(L("- Gorsel / karakter / oyun araclari", "- Image / character / game tools"), MutedStyle());
-            GUILayout.Label(L("- Mobil marble-shooter ornegi", "- Mobile marble-shooter sample"), MutedStyle());
-            GUILayout.Label(L("- Disari aktarilabilir Unity paketi", "- Exportable Unity package"), MutedStyle());
-            GUILayout.Space(10f);
-            GUILayout.Label(L("PYTHON BACKEND", "PYTHON BACKEND"), SmallLabelStyle());
-            GUILayout.Label(ShortPath(ServerManager.BackendRoot), MutedStyle());
-            if (GUILayout.Button(L("Backend klasorunu sec", "Choose backend folder"), GUILayout.Height(28f)))
-            {
-                var selected = EditorUtility.OpenFolderPanel(L("Cikartilan AI Engineer backend klasorunu sec", "Choose extracted AI Engineer backend"), ServerManager.BackendRoot, "");
-                if (!string.IsNullOrWhiteSpace(selected)) ServerManager.BackendRoot = selected;
-            }
-            GUILayout.Space(6f);
-            GUILayout.Label(L("PYTHON CALISTIRICI", "PYTHON EXECUTABLE"), SmallLabelStyle());
-            GUILayout.Label(ShortPath(ServerManager.PythonExecutable), MutedStyle());
-            if (GUILayout.Button(L("Python dosyasini sec", "Choose Python executable"), GUILayout.Height(28f)))
-            {
-                var selected = EditorUtility.OpenFilePanel(L("Python calistirilabilir dosyasini sec", "Choose Python executable"), System.IO.Path.GetDirectoryName(ServerManager.PythonExecutable) ?? string.Empty, "exe");
-                if (!string.IsNullOrWhiteSpace(selected)) ServerManager.PythonExecutable = selected;
-            }
+            GUILayout.Label(L("SISTEM", "SYSTEM"), SmallLabelStyle());
+            DrawCheck(L("Orkestrasyon", "Orchestration"), L("Planlama, kod ve varlik uzmanlari tek istek icin birlikte calisir", "Planning, code and asset specialists collaborate on one request"));
+            DrawCheck(L("Yerel motor", "Local engine"), ServerManager.IsRunning ? L("Hazir", "Ready") : L("Istekle birlikte baslatilir", "Starts with the request"));
             GUILayout.Space(8f);
-            GUILayout.Label(L("MODEL SAGLAYICILARI", "MODEL PROVIDERS"), SmallLabelStyle());
-            var qwenConnected = ProviderSetupManager.IsQwenProviderConfigured;
-            EditorGUILayout.HelpBox(
-                qwenConnected
-                    ? L("Qwen hesabi etkin: ", "Qwen account active: ") + ProviderSetupManager.QwenProviderStatus
-                    : L("Qwen.ai Gmail oturumu tek basina Code'u etkinlestirmez. Guvenli tarayici girisini baslatin.", "A Qwen.ai Gmail session alone does not activate Code. Start the secure browser sign-in."),
-                qwenConnected ? MessageType.Info : MessageType.Warning);
-            if (GUILayout.Button(L("Qwen hesabini bagla (tarayici)", "Connect Qwen account (browser)"), GUILayout.Height(28f)))
-            {
-                ProviderSetupManager.OpenQwenAccountSignIn();
-                status = L("Qwen tarayici ve terminal akisi acildi. Giris sonrasi terminalde /auth ile saglayiciyi tamamlayin.", "Qwen browser and terminal flow opened. Finish the provider with /auth after sign-in.");
-            }
-            if (GUILayout.Button(L("Qwen Code terminalini ac", "Open Qwen Code terminal"), GUILayout.Height(26f))) ProviderSetupManager.OpenQwenSetup();
-            if (GUILayout.Button(L("Qwen baglantisini kontrol et", "Check Qwen connection"), GUILayout.Height(24f)))
-                status = ProviderSetupManager.IsQwenProviderConfigured
-                    ? L("Qwen baglantisi etkin: ", "Qwen connection active: ") + ProviderSetupManager.QwenProviderStatus
-                    : L("Qwen baglantisi bulunamadi. Tarayici girisini acin ve terminalde /auth kullanin.", "No Qwen connection found. Open browser sign-in and use /auth in the terminal.");
-            if (GUILayout.Button(L("Codex Plus girisini ac", "Open Codex Plus login"), GUILayout.Height(26f))) ProviderSetupManager.OpenCodexLogin();
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button(L("Qwen yolunu sec", "Choose Qwen path"), GUILayout.Height(24f))) ChooseProviderExecutable(true);
-            if (GUILayout.Button(L("Codex yolunu sec", "Choose Codex path"), GUILayout.Height(24f))) ChooseProviderExecutable(false);
-            EditorGUILayout.EndHorizontal();
-            GUILayout.Space(8f);
-            if (GUILayout.Button(L("Kullanim kilavuzunu ac", "Open user guide"), GUILayout.Height(30f))) OpenUserGuide();
+            GUILayout.Label(L("Teknik ayarlar ve hesap baglantilari AI Engineer menusunde bulunur.", "Technical settings and account connections are available from the AI Engineer menu."), MutedStyle());
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button(L("Console'u ac", "Open Console"), GUILayout.Height(28f))) EditorApplication.ExecuteMenuItem("Window/General/Console");
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawFluxAssetPanel()
+        {
+            var hasReference = !string.IsNullOrWhiteSpace(referenceImagePath);
+            GUILayout.Space(12f);
+            GUILayout.Label("FLUX.2 KLEIN 4B " + L("GORSEL VARLIK", "IMAGE ASSET"), SectionStyle());
+            EditorGUILayout.HelpBox(
+                L("ComfyUI/Flux ayni Control Center akisinin parcasidir. Uretilen PNG yedekli islemle Unity'ye yazilir ve Sprite olarak ice aktarilir.",
+                    "ComfyUI/Flux is part of this Control Center flow. The PNG is written through a backed-up job and imported into Unity as a Sprite."),
+                ServerManager.FluxIsRunning ? MessageType.Info : MessageType.Warning);
+            DrawReferenceDropZone();
+            GUILayout.Label(L("Gorsel talimati", "Image instruction"), SmallLabelStyle());
+            imagePrompt = EditorGUILayout.TextArea(imagePrompt, EditorStyles.textArea, GUILayout.MinHeight(48f));
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label(L("Dosya adi", "File name"), GUILayout.Width(72f));
+            imageOutputName = EditorGUILayout.TextField(imageOutputName);
+            GUILayout.Label(L("Boyut", "Size"), GUILayout.Width(42f));
+            imageSizeIndex = EditorGUILayout.Popup(imageSizeIndex, new[] { "512 x 512", "1024 x 1024" }, GUILayout.Width(104f));
+            EditorGUILayout.EndHorizontal();
+            if (hasReference)
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(L("Duzeltme gucu", "Edit strength"), GUILayout.Width(92f));
+                imageEditStrength = EditorGUILayout.Slider(imageEditStrength, 0.05f, 1f);
+                GUILayout.Label(imageEditStrength.ToString("0.00"), GUILayout.Width(34f));
+                EditorGUILayout.EndHorizontal();
+            }
+            EditorGUILayout.BeginHorizontal();
+            GUI.enabled = !isRunning && !AutonomousJobRunner.IsBusy && !string.IsNullOrWhiteSpace(imagePrompt);
+            if (GUILayout.Button(L("Flux ile Sprite uret ve Unity'ye aktar", "Generate Sprite with Flux and import into Unity"), PrimaryButtonStyle(), GUILayout.Height(34f)))
+                StartFluxImageGeneration();
+            GUI.enabled = true;
+            if (GUILayout.Button(ServerManager.FluxIsRunning ? L("Flux hazir", "Flux ready") : L("Flux motorunu baslat", "Start Flux engine"), GUILayout.Width(140f), GUILayout.Height(34f)))
+            {
+                ServerManager.Start();
+                ServerManager.StartFluxEngine();
+                status = L("Flux motoru baslatiliyor; hazir oldugunda ayni dugmeden Sprite uretebilirsiniz.", "Flux engine is starting; generate a Sprite from this same button when it is ready.");
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawReferenceDropZone()
+        {
+            GUILayout.Space(5f);
+            var hasReference = !string.IsNullOrWhiteSpace(referenceImagePath);
+            var label = hasReference
+                ? L("Referans: ", "Reference: ") + referenceImagePath
+                : L("Referans gorsel ekle: herhangi bir ekran goruntusu, fotograf veya konsept. Surukle-birak ya da Ctrl+V kullan.", "Add a reference image: any screenshot, photo, or concept. Drag and drop or use Ctrl+V.");
+            var dropZone = GUILayoutUtility.GetRect(10f, 46f, GUILayout.ExpandWidth(true));
+            GUI.Box(dropZone, label, EditorStyles.helpBox);
+            HandleReferenceInput(dropZone, true);
+            if (GUILayout.Button(L("Gorsel sec (veya Ctrl+V kullan)", "Choose image (or use Ctrl+V)"), SecondaryButtonStyle(), GUILayout.Height(22f))) ChooseReferenceImage();
+            if (hasReference && GUILayout.Button(L("Referansi temizle", "Clear reference"), SecondaryButtonStyle(), GUILayout.Height(20f))) referenceImagePath = string.Empty;
+        }
+
+        private void HandleReferenceInput(Rect targetArea, bool captureClipboard)
+        {
+            var current = Event.current;
+            if (targetArea.Contains(current.mousePosition))
+            {
+                if (current.type == EventType.DragUpdated || current.type == EventType.DragPerform)
+                {
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                    if (current.type == EventType.DragPerform)
+                    {
+                        DragAndDrop.AcceptDrag();
+                        var path = DragAndDrop.paths != null && DragAndDrop.paths.Length > 0 ? DragAndDrop.paths[0] : string.Empty;
+                        if (string.IsNullOrWhiteSpace(path) && DragAndDrop.objectReferences.Length > 0)
+                            path = AssetDatabase.GetAssetPath(DragAndDrop.objectReferences[0]);
+                        ImportReferenceImage(path);
+                    }
+                    current.Use();
+                }
+            }
+            if (captureClipboard && current.type == EventType.KeyDown && current.control && current.keyCode == KeyCode.V && ClipboardLikelyHasReferenceImage())
+            {
+                TryPasteReferenceImage();
+                current.Use();
+            }
+        }
+
+        private static bool ClipboardLikelyHasReferenceImage()
+        {
+            var clipboard = (EditorGUIUtility.systemCopyBuffer ?? string.Empty).Trim().Trim('"');
+            if (clipboard.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)) clipboard = new Uri(clipboard).LocalPath;
+            // Image-only clipboard content does not expose text to Unity; ordinary text
+            // remains available for normal Ctrl+V into the instruction field.
+            return string.IsNullOrWhiteSpace(clipboard) || File.Exists(clipboard);
+        }
+
+        private void TryPasteReferenceImage()
+        {
+            var clipboard = (EditorGUIUtility.systemCopyBuffer ?? string.Empty).Trim().Trim('"');
+            if (clipboard.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)) clipboard = new Uri(clipboard).LocalPath;
+            if (File.Exists(clipboard))
+            {
+                ImportReferenceImage(clipboard);
+                return;
+            }
+            var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+            var assetPath = CreateReferenceAssetPath(projectRoot, "ClipboardReference.png");
+            var output = Path.Combine(projectRoot, assetPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? projectRoot);
+            var escapedPath = output.Replace("'", "''");
+            var command = "Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; if ([Windows.Forms.Clipboard]::ContainsImage()) { [Windows.Forms.Clipboard]::GetImage().Save('" + escapedPath + "', [Drawing.Imaging.ImageFormat]::Png) }";
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -STA -Command \"" + command + "\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                });
+                process?.WaitForExit(5000);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                if (File.Exists(output))
+                {
+                    referenceImagePath = assetPath;
+                    status = L("Pano gorseli referans olarak alindi.", "Clipboard image imported as the reference.");
+                }
+                else status = L("Panoda resim veya resim dosya yolu bulunamadi.", "No image or image-file path was found on the clipboard.");
+            }
+            catch (Exception error) { status = L("Pano gorseli alinamadi: ", "Clipboard image could not be imported: ") + error.Message; }
+        }
+
+        private void ImportReferenceImage(string sourcePath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourcePath)) return;
+                if (Directory.Exists(sourcePath))
+                {
+                    status = L("Klasor degil, bir PNG/JPG/WEBP dosyasi birakin veya secin.", "Drop or choose a PNG/JPG/WEBP file, not a folder.");
+                    return;
+                }
+                var normalized = sourcePath.Replace('\\', '/');
+                if (normalized.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+                {
+                    referenceImagePath = normalized;
+                    status = L("Proje gorseli tek istege referans olarak eklendi.", "Project image added as reference to the single request.");
+                    return;
+                }
+                if (!File.Exists(sourcePath)) { status = L("Referans gorsel bulunamadi.", "Reference image was not found."); return; }
+                var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+                if (extension != ".png" && extension != ".jpg" && extension != ".jpeg" && extension != ".webp")
+                {
+                    status = L("Referans PNG, JPG, JPEG veya WEBP olmali.", "Reference must be PNG, JPG, JPEG or WEBP.");
+                    return;
+                }
+                var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+                var assetPath = CreateReferenceAssetPath(projectRoot, Path.GetFileName(sourcePath));
+                var target = Path.Combine(projectRoot, assetPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(target) ?? projectRoot);
+                File.Copy(sourcePath, target, false);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                referenceImagePath = assetPath;
+                status = L("Referans gorsel projeye alindi; ilgili uzmanlara otomatik baglam olarak verilecek.", "Reference image imported into the project; it will be passed as context to the relevant specialists automatically.");
+                Repaint();
+            }
+            catch (Exception error)
+            {
+                status = L("Referans gorsel alinamadi: ", "Reference image could not be imported: ") + error.Message;
+                UnityEngine.Debug.LogError("[AI] " + status);
+            }
+        }
+
+        private static string CreateReferenceAssetPath(string projectRoot, string fileName)
+        {
+            const string folder = "Assets/AIEngineerGenerated/References";
+            var absoluteFolder = Path.Combine(projectRoot, "Assets", "AIEngineerGenerated", "References");
+            Directory.CreateDirectory(absoluteFolder);
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            if (extension != ".png" && extension != ".jpg" && extension != ".jpeg" && extension != ".webp") extension = ".png";
+            var baseName = Path.GetFileNameWithoutExtension(fileName);
+            baseName = new string((baseName ?? string.Empty).Where(character => char.IsLetterOrDigit(character) || character == '_' || character == '-').ToArray());
+            if (string.IsNullOrWhiteSpace(baseName)) baseName = "Reference";
+            return folder + "/" + baseName + "_" + Guid.NewGuid().ToString("N").Substring(0, 10) + extension;
+        }
+
+        private void StartFluxImageGeneration()
+        {
+            ServerManager.Start();
+            if (!ServerManager.FluxIsRunning)
+            {
+                status = L("Flux motoru henuz hazir degil. Model yuklenirken birkac saniye bekleyip tekrar deneyin.", "Flux engine is not ready yet. Wait a few seconds for models to load, then try again.");
+                return;
+            }
+            var rawName = Path.GetFileNameWithoutExtension(imageOutputName ?? string.Empty);
+            var safeName = new string((rawName ?? string.Empty).ToCharArray().Where(character => char.IsLetterOrDigit(character) || character == '_' || character == '-').ToArray());
+            if (string.IsNullOrWhiteSpace(safeName)) safeName = "GeneratedSprite";
+            var size = imageSizeIndex == 0 ? 512 : 1024;
+            var outputPath = "Assets/AIEngineerGenerated/Textures/" + safeName + ".png";
+            var changeSet = new AutonomousChangeSet
+            {
+                protocol = "ai-engineer.change-set/v1",
+                requestId = "flux-" + Guid.NewGuid().ToString("N"),
+                summary = L("Flux.2 ile Sprite uret ve Unity'ye aktar: ", "Generate and import a Sprite with Flux.2: ") + safeName,
+                risk = "LOW",
+                requiresConfirmation = false,
+                operations = new[]
+                {
+                    new AutonomousChangeOperation
+                    {
+                        id = "generate-image",
+                        kind = "generate_image",
+                        prompt = imagePrompt.Trim(),
+                        sourceImagePath = referenceImagePath,
+                        editStrength = imageEditStrength,
+                        outputPath = outputPath,
+                        width = size,
+                        height = size,
+                        transparent = false,
+                        importType = "Sprite",
+                        overwrite = false,
+                    },
+                },
+                validation = new AutonomousValidation { compile = false, playMode = false, checks = Array.Empty<string>() },
+                explanation = new[] { string.IsNullOrWhiteSpace(referenceImagePath) ? L("PNG Flux.2 ile uretilecek, yedeklenecek ve Sprite olarak ice aktarilacak.", "The PNG will be generated with Flux.2, backed up, and imported as a Sprite.") : L("Referans gorsel Flux.2 ile talimata gore duzenlenecek, yedeklenecek ve Sprite olarak ice aktarilacak.", "The reference image will be edited by Flux.2 according to the instruction, backed up, and imported as a Sprite.") },
+                warnings = new[] { L("Kurulu Flux akisi su an opak PNG uretir; saydamlik sonraki varlik-isleme adimidir.", "The installed Flux workflow currently produces opaque PNGs; alpha processing is the next asset-processing step.") },
+                model = "flux-2-klein-4b",
+                responseType = "change_set",
+                answer = string.Empty,
+            };
+            status = L("Flux Sprite isi kuyruga alindi; yedekleme ve Unity ice aktarma otomatik ilerleyecek.", "Flux Sprite job queued; backup and Unity import will continue automatically.");
+            lastResponse = AutonomousChangeSetFormatter.Format(changeSet);
+            EditorApplication.delayCall += () => StartQueuedChangeSet(imagePrompt, string.Empty, "local", changeSet, 0);
+            Repaint();
         }
 
         private async void SendPlanRequest()
@@ -281,7 +457,7 @@ namespace AIEngineer.Editor
                     throw new InvalidDataException("Backend returned a plan that cannot be applied. Generate the plan again.");
                 pendingChangeSet = response;
                 status = modelMode == "local"
-                    ? L("Yerel model uygulanabilir degisiklik seti uretti; yedek, derleme ve geri alma korumalari etkin.", "Local model produced an executable change set; backup, compilation and rollback safeguards are enabled.")
+                    ? L("Qwen planladi, Qwen Coder uygulanabilir degisiklik setini hazirladi; gereken gorsel varliklar Flux'a otomatik yonlendirilecek.", "Qwen planned, Qwen Coder prepared the executable change set; required image assets will be routed to Flux automatically.")
                     : L("Secilen hesap saglayicisi uygulanabilir degisiklik seti uretti.", "The selected account provider produced an executable change set.");
                 lastResponse = AutonomousChangeSetFormatter.Format(pendingChangeSet);
                 if (fullAutonomy && !string.Equals(pendingChangeSet.risk, "HIGH", StringComparison.OrdinalIgnoreCase))
@@ -366,8 +542,8 @@ namespace AIEngineer.Editor
 
         private void ChooseReferenceImage()
         {
-            var selected = EditorUtility.OpenFilePanel(L("Referans oyun veya karakter gorseli sec", "Choose a game or character reference image"), string.Empty, "png,jpg,jpeg");
-            if (!string.IsNullOrWhiteSpace(selected)) referenceImagePath = selected;
+            var selected = EditorUtility.OpenFilePanel(L("Herhangi bir referans gorsel sec", "Choose any reference image"), string.Empty, "png,jpg,jpeg,webp");
+            if (!string.IsNullOrWhiteSpace(selected)) ImportReferenceImage(selected);
         }
 
         private void ChooseProviderExecutable(bool qwen)
@@ -409,9 +585,7 @@ namespace AIEngineer.Editor
             {
                 0 => L("Acik bir istekten kapsamli bir Unity plani veya mobil oyun giris UI'i olustur.", "Create a scoped Unity plan or a mobile game entrance UI from a clear request."),
                 1 => L("Degisiklikten once sahne, script, gorsel veya proje yapisini incele.", "Inspect a scene, script, image or project structure before editing."),
-                2 => L("Sorunlari bul, geri alinabilir onarimlar oner ve sonucu dogrula.", "Find issues, propose reversible repairs and validate the outcome."),
-                3 => L("Asamali Unity istegiyle oyun prototipi, ozellik veya oyuncuya oyunu anlatan giris ekrani uret.", "Generate a game prototype, feature, or an entrance screen that explains the game to the player."),
-                _ => L("Gecmis dersleri ve muhendislik kisitlarini yeni plana tasi.", "Bring relevant lessons and engineering constraints into the next plan."),
+                _ => L("Sorunlari bul, geri alinabilir onarimlar oner ve sonucu dogrula.", "Find issues, propose reversible repairs and validate the outcome."),
             };
         }
 
@@ -420,13 +594,28 @@ namespace AIEngineer.Editor
         private static GUIStyle SmallLabelStyle() { var style = new GUIStyle(EditorStyles.miniBoldLabel); style.normal.textColor = new Color(0.62f, 0.7f, 0.78f); return style; }
         private static GUIStyle MutedStyle() { var style = new GUIStyle(EditorStyles.miniLabel) { wordWrap = true }; style.normal.textColor = new Color(0.58f, 0.64f, 0.7f); return style; }
         private static GUIStyle StatusStyle(bool online) { var style = new GUIStyle(EditorStyles.miniBoldLabel); style.normal.textColor = online ? new Color(0.35f, 0.83f, 0.66f) : new Color(1f, 0.72f, 0.28f); return style; }
-        private static GUIStyle PrimaryButtonStyle() { var style = new GUIStyle(GUI.skin.button) { fontStyle = FontStyle.Bold }; style.normal.textColor = new Color(0.62f, 0.9f, 1f); return style; }
+        private static GUIStyle PrimaryButtonStyle()
+        {
+            var style = new GUIStyle(GUI.skin.button) { fontStyle = FontStyle.Bold, fixedHeight = 32f };
+            style.normal.background = PrimaryButtonTexture; style.hover.background = ActiveButtonTexture;
+            style.normal.textColor = new Color(0.9f, 0.98f, 1f); return style;
+        }
+
+        private static GUIStyle SecondaryButtonStyle()
+        {
+            var style = new GUIStyle(GUI.skin.button) { fontSize = 11, padding = new RectOffset(9, 9, 3, 3) };
+            style.normal.background = SecondaryButtonTexture; style.hover.background = ActiveButtonTexture;
+            style.normal.textColor = new Color(0.72f, 0.86f, 0.94f); return style;
+        }
 
         private static void EnsureTextures()
         {
             if (HeaderTexture == null) HeaderTexture = MakeTexture(new Color(0.045f, 0.09f, 0.16f));
             if (SidebarTexture == null) SidebarTexture = MakeTexture(new Color(0.075f, 0.09f, 0.13f));
             if (InspectorTexture == null) InspectorTexture = MakeTexture(new Color(0.065f, 0.08f, 0.11f));
+            if (PrimaryButtonTexture == null) PrimaryButtonTexture = MakeTexture(new Color(0.08f, 0.37f, 0.56f));
+            if (SecondaryButtonTexture == null) SecondaryButtonTexture = MakeTexture(new Color(0.12f, 0.17f, 0.23f));
+            if (ActiveButtonTexture == null) ActiveButtonTexture = MakeTexture(new Color(0.11f, 0.47f, 0.68f));
         }
 
         private static Texture2D MakeTexture(Color color)
